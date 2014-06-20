@@ -1,0 +1,4 @@
+/demo-*
+/libtickit-*
+/run-tests
+*.stamp

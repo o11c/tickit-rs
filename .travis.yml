@@ -1,0 +1,23 @@
+before_install:
+  - sudo add-apt-repository --yes ppa:hansjorg/rust
+  - sudo apt-get update -qq
+install:
+  - sudo apt-get install -qq rust-nightly
+before_script:
+  - git clone --depth 1 git://github.com/mauke/unibilium.git
+  - make -j2 -C unibilium
+  - sudo make -j2 -C unibilium install
+  - sudo ldconfig
+  - git clone --depth 1 git://github.com/o11c/libtermkey.git -b o11c termkey-c
+  - make -j2 -C termkey-c
+  - make -j2 -C termkey-c test
+  - sudo make -j2 -C termkey-c install
+  - sudo ldconfig
+  - git clone --depth 1 git://github.com/o11c/libtickit.git -b o11c tickit-c
+  - make -j2 -C tickit-c
+  - make -j2 -C tickit-c test
+  - sudo make -j2 -C tickit-c install
+  - sudo ldconfig
+script:
+  - make -j2 all
+  - make -j2 test
