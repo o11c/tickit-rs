@@ -1,7 +1,11 @@
 #![crate_id = "tickit#0.0.2014.5.2.0"]
 #![crate_type = "dylib"]
 
-mod c;
+#![feature(macro_rules)]
+
+extern crate libc;
+mod bitset_macro;
+pub mod c;
 
 pub fn get_hello() -> String
 {
