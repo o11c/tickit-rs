@@ -1046,6 +1046,7 @@ pub mod signal_hacks
                     loop
                     {
                         let sig = listener.rx.recv();
+                        print!("\r\nInterrupt signal received. Press any key to flush\r\n");
                         tx.send(sig);
                         break;
                     }

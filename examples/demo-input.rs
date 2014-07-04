@@ -52,8 +52,8 @@ fn render_key<'a>(tt: &mut tickit::TickitTerm, ev: Option<&tickit::TickitKeyEven
     };
     let (str_, mods) = match *ev
     {
-        tickit::KeyKeyEvent{key, mod_} => { tt.print("text "); (key, mod_) }
-        tickit::KeyTextEvent{text, mod_} => { tt.print("key  "); (text, mod_) }
+        tickit::KeyTextEvent{text, mod_} => { tt.print("text "); (text, mod_) }
+        tickit::KeyKeyEvent{key, mod_} => { tt.print("key  "); (key, mod_) }
     };
     tt.print(str_);
     render_modifier(tt, mods);
@@ -163,5 +163,4 @@ fn main()
     {
         tt.input_wait(None);
     }
-    println!("main() exiting")
 }
