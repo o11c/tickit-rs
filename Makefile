@@ -24,4 +24,4 @@ test: test.stamp
 	./run-tests
 
 clean:
-	rm -f libtickit*.so run-tests demo-async demo-sync *.stamp
+	rm -f libtickit*.so run-tests demo-input demo-pen demo-termctl demo-timer demo-xterm256 *.stamp

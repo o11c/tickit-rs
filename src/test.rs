@@ -1,7 +1,6 @@
 extern crate tickit;
 
 #[test]
-fn test_hello()
+fn test_nothing()
 {
-    assert!(tickit::get_hello().as_slice() == "Hello, World!");
 }

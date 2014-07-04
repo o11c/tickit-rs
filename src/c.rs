@@ -20,27 +20,29 @@ bitset!(TickitEventType: c_uint
 #[repr(C)]
 pub enum TickitKeyEventType
 {
+  X_TICKIT_KEYEV_NONE = -1,
   TICKIT_KEYEV_KEY = 1,
   TICKIT_KEYEV_TEXT,
 }
 
-#[repr(C)]
+#[repr(C)] #[deriving(PartialEq)]
 pub enum TickitMouseEventType
 {
+  X_TICKIT_MOUSEEV_NONE = -1,
   TICKIT_MOUSEEV_PRESS = 1,
   TICKIT_MOUSEEV_DRAG,
   TICKIT_MOUSEEV_RELEASE,
   TICKIT_MOUSEEV_WHEEL,
 }
 
-#[repr(C)]
+#[repr(C)] #[deriving(PartialEq)]
 pub enum X_Tickit_MouseWheel
 {
   TICKIT_MOUSEWHEEL_UP = 1,
   TICKIT_MOUSEWHEEL_DOWN,
 }
 
-bitset!(X_Tickit_Mod: c_uint
+bitset!(X_Tickit_Mod: c_int
 {
   TICKIT_MOD_SHIFT = 0x01,
   TICKIT_MOD_ALT   = 0x02,
@@ -50,12 +52,12 @@ bitset!(X_Tickit_Mod: c_uint
 #[repr(C)]
 pub struct TickitEvent
 {
-  lines: c_int, cols: c_int,// RESIZE
-  type_: c_int,             // KEY, MOUSE
-  str_: *c_char,            // KEY
-  button: c_int,            // MOUSE
-  line: c_int, col: c_int,  // MOUSE
-  mod_: c_int,              // KEY, MOUSE
+  pub lines: c_int, pub cols: c_int,// RESIZE
+  pub type_: c_int,                 // KEY, MOUSE
+  pub str_: *const c_char,          // KEY
+  pub button: c_int,                // MOUSE
+  pub line: c_int, pub col: c_int,  // MOUSE
+  pub mod_: X_Tickit_Mod,           // KEY, MOUSE
 }
 
 pub struct TickitPen;
@@ -63,6 +65,8 @@ pub struct TickitPen;
 #[repr(C)]
 pub enum TickitPenAttr
 {
+  TICKIT_PEN_NONE = -1,
+
   TICKIT_PEN_FG,         /* colour */
   TICKIT_PEN_BG,         /* colour */
   TICKIT_PEN_BOLD,       /* bool */
@@ -89,31 +93,31 @@ pub fn tickit_pen_new() -> *mut TickitPen;
 pub fn tickit_pen_clone(orig: *mut TickitPen) -> *mut TickitPen;
 pub fn tickit_pen_destroy(pen: *mut TickitPen);
 
-pub fn tickit_pen_has_attr(pen: *TickitPen, attr: TickitPenAttr) -> c_int;
-pub fn tickit_pen_is_nonempty(pen: *TickitPen) -> c_int;
-pub fn tickit_pen_is_nondefault(pen: *TickitPen) -> c_int;
+pub fn tickit_pen_has_attr(pen: *const TickitPen, attr: TickitPenAttr) -> c_int;
+pub fn tickit_pen_is_nonempty(pen: *const TickitPen) -> c_int;
+pub fn tickit_pen_is_nondefault(pen: *const TickitPen) -> c_int;
 
-pub fn tickit_pen_get_bool_attr(pen: *TickitPen, attr: TickitPenAttr) -> c_int;
+pub fn tickit_pen_get_bool_attr(pen: *const TickitPen, attr: TickitPenAttr) -> c_int;
 pub fn tickit_pen_set_bool_attr(pen: *mut TickitPen, attr: TickitPenAttr, val: c_int);
 
-pub fn tickit_pen_get_int_attr(pen: *TickitPen, attr: TickitPenAttr) -> c_int;
+pub fn tickit_pen_get_int_attr(pen: *const TickitPen, attr: TickitPenAttr) -> c_int;
 pub fn tickit_pen_set_int_attr(pen: *mut TickitPen, attr: TickitPenAttr, val: c_int);
 
-pub fn tickit_pen_get_colour_attr(pen: *TickitPen, attr: TickitPenAttr) -> c_int;
+pub fn tickit_pen_get_colour_attr(pen: *const TickitPen, attr: TickitPenAttr) -> c_int;
 pub fn tickit_pen_set_colour_attr(pen: *mut TickitPen, attr: TickitPenAttr, value: c_int);
-pub fn tickit_pen_set_colour_attr_desc(pen: *mut TickitPen, attr: TickitPenAttr, value: *c_char) -> c_int;
+pub fn tickit_pen_set_colour_attr_desc(pen: *mut TickitPen, attr: TickitPenAttr, value: *const c_char) -> c_int;
 
 pub fn tickit_pen_clear_attr(pen: *mut TickitPen, attr: TickitPenAttr);
 pub fn tickit_pen_clear(pen: *mut TickitPen);
 
-pub fn tickit_pen_equiv_attr(a: *TickitPen, b: *TickitPen, attr: TickitPenAttr) -> c_int;
-pub fn tickit_pen_equiv(a: *TickitPen, b: *TickitPen) -> c_int;
+pub fn tickit_pen_equiv_attr(a: *const TickitPen, b: *const TickitPen, attr: TickitPenAttr) -> c_int;
+pub fn tickit_pen_equiv(a: *const TickitPen, b: *const TickitPen) -> c_int;
 
-pub fn tickit_pen_copy_attr(dst: *mut TickitPen, src: *TickitPen, attr: TickitPenAttr);
-pub fn tickit_pen_copy(dst: *mut TickitPen, src: *TickitPen, overwrite: c_int);
+pub fn tickit_pen_copy_attr(dst: *mut TickitPen, src: *const TickitPen, attr: TickitPenAttr);
+pub fn tickit_pen_copy(dst: *mut TickitPen, src: *const TickitPen, overwrite: c_int);
 }
 
-pub type TickitPenEventFn = extern fn(tt: *mut TickitPen, ev: TickitEventType, args: *mut TickitEvent, data: *mut c_void);
+pub type TickitPenEventFn = Option<extern fn(pen: *mut TickitPen, ev: TickitEventType, args: *mut TickitEvent, data: *mut c_void)>;
 
 extern
 {
@@ -121,18 +125,18 @@ pub fn tickit_pen_bind_event(tt: *mut TickitPen, ev: TickitEventType, fn_: Ticki
 pub fn tickit_pen_unbind_event_id(tt: *mut TickitPen, id: c_int);
 
 pub fn tickit_pen_attrtype(attr: TickitPenAttr) -> TickitPenAttrType;
-pub fn tickit_pen_attrname(attr: TickitPenAttr) -> *c_char;
-pub fn tickit_pen_lookup_attr(name: *c_char) -> TickitPenAttr;
+pub fn tickit_pen_attrname(attr: TickitPenAttr) -> *const c_char;
+pub fn tickit_pen_lookup_attr(name: *const c_char) -> TickitPenAttr;
 }
 
 
 #[repr(C)]
 pub struct TickitRect
 {
-  top: c_int,
-  left: c_int,
-  lines: c_int,
-  cols: c_int,
+  pub top: c_int,
+  pub left: c_int,
+  pub lines: c_int,
+  pub cols: c_int,
 }
 
 extern
@@ -142,26 +146,26 @@ pub fn tickit_rect_init_bounded(rect: *mut TickitRect, top: c_int, left: c_int, 
 }
 
 #[inline]
-pub unsafe fn tickit_rect_bottom(rect: *TickitRect) -> c_int
+pub unsafe fn tickit_rect_bottom(rect: *const TickitRect) -> c_int
 {
     return (*rect).top + (*rect).lines;
 }
 
 #[inline]
-pub unsafe fn tickit_rect_right(rect: *TickitRect) -> c_int
+pub unsafe fn tickit_rect_right(rect: *const TickitRect) -> c_int
 {
     return (*rect).left + (*rect).cols;
 }
 
 extern
 {
-pub fn tickit_rect_intersect(dst: *mut TickitRect, a: *TickitRect, b: *TickitRect) -> c_int;
+pub fn tickit_rect_intersect(dst: *mut TickitRect, a: *const TickitRect, b: *const TickitRect) -> c_int;
 
-pub fn tickit_rect_intersects(a: *TickitRect, b: *TickitRect) -> c_int;
-pub fn tickit_rect_contains(large: *TickitRect, small: *TickitRect) -> c_int;
+pub fn tickit_rect_intersects(a: *const TickitRect, b: *const TickitRect) -> c_int;
+pub fn tickit_rect_contains(large: *const TickitRect, small: *const TickitRect) -> c_int;
 
-pub fn tickit_rect_add(ret: *[TickitRect, ..3], a: *TickitRect, b: *TickitRect) -> c_int;
-pub fn tickit_rect_subtract(ret: *[TickitRect, ..4], orig: *TickitRect, hole: *TickitRect) -> c_int;
+pub fn tickit_rect_add(ret: *mut [TickitRect, ..3], a: *const TickitRect, b: *const TickitRect) -> c_int;
+pub fn tickit_rect_subtract(ret: *mut [TickitRect, ..4], orig: *const TickitRect, hole: *const TickitRect) -> c_int;
 }
 
 
@@ -174,69 +178,69 @@ pub fn tickit_rectset_destroy(trs: *mut TickitRectSet);
 
 pub fn tickit_rectset_clear(trs: *mut TickitRectSet);
 
-pub fn tickit_rectset_rects(trs: *TickitRectSet) -> size_t;
-pub fn tickit_rectset_get_rects(trs: *TickitRectSet, rects: *TickitRect, n: size_t) -> size_t;
+pub fn tickit_rectset_rects(trs: *const TickitRectSet) -> size_t;
+pub fn tickit_rectset_get_rects(trs: *const TickitRectSet, rects: *mut TickitRect, n: size_t) -> size_t;
 
-pub fn tickit_rectset_add(trs: *mut TickitRectSet, rect: *TickitRect);
-pub fn tickit_rectset_subtract(trs: *mut TickitRectSet, rect: *TickitRect);
+pub fn tickit_rectset_add(trs: *mut TickitRectSet, rect: *const TickitRect);
+pub fn tickit_rectset_subtract(trs: *mut TickitRectSet, rect: *const TickitRect);
 
-pub fn tickit_rectset_intersects(trs: *TickitRectSet, rect: *TickitRect) -> c_int;
-pub fn tickit_rectset_contains(trs: *TickitRectSet, rect: *TickitRect) -> c_int;
+pub fn tickit_rectset_intersects(trs: *const TickitRectSet, rect: *const TickitRect) -> c_int;
+pub fn tickit_rectset_contains(trs: *const TickitRectSet, rect: *const TickitRect) -> c_int;
 }
 
 
 pub struct TickitTerm;
-pub type TickitTermOutputFunc = extern fn(tt: *mut TickitTerm, bytes: *c_char, len: size_t, user: *mut c_void);
+pub type TickitTermOutputFunc = Option<extern fn(tt: *mut TickitTerm, bytes: *const c_char, len: size_t, user: *mut c_void)>;
 
 extern
 {
 pub fn tickit_term_new() -> *mut TickitTerm;
-pub fn tickit_term_new_for_termtype(termtype: *c_char) -> *mut TickitTerm;
+pub fn tickit_term_new_for_termtype(termtype: *const c_char) -> *mut TickitTerm;
 pub fn tickit_term_destroy(tt: *mut TickitTerm);
 
-pub fn tickit_term_get_termtype(tt: *mut TickitTerm) -> *c_char;
+pub fn tickit_term_get_termtype(tt: *mut TickitTerm) -> *const c_char;
 
 pub fn tickit_term_set_output_fd(tt: *mut TickitTerm, fd: c_int);
-pub fn tickit_term_get_output_fd(tt: *TickitTerm) -> c_int;
+pub fn tickit_term_get_output_fd(tt: *const TickitTerm) -> c_int;
 pub fn tickit_term_set_output_func(tt: *mut TickitTerm, fn_: TickitTermOutputFunc, user: *mut c_void);
 pub fn tickit_term_set_output_buffer(tt: *mut TickitTerm, len: size_t);
 
-pub fn tickit_term_await_started(tt: *mut TickitTerm, timeout: *timeval);
+pub fn tickit_term_await_started(tt: *mut TickitTerm, timeout: *const timeval);
 pub fn tickit_term_flush(tt: *mut TickitTerm);
 
 /* fd is allowed to be unset (-1); works abstractly */
 pub fn tickit_term_set_input_fd(tt: *mut TickitTerm, fd: c_int);
-pub fn tickit_term_get_input_fd(tt: *TickitTerm) -> c_int;
+pub fn tickit_term_get_input_fd(tt: *const TickitTerm) -> c_int;
 
-pub fn tickit_term_get_utf8(tt: *TickitTerm) -> c_int;
+pub fn tickit_term_get_utf8(tt: *const TickitTerm) -> c_int;
 pub fn tickit_term_set_utf8(tt: *mut TickitTerm, utf8: c_int);
 
-pub fn tickit_term_input_push_bytes(tt: *mut TickitTerm, bytes: *c_char, len: size_t);
+pub fn tickit_term_input_push_bytes(tt: *mut TickitTerm, bytes: *const c_char, len: size_t);
 pub fn tickit_term_input_readable(tt: *mut TickitTerm);
 pub fn tickit_term_input_check_timeout(tt: *mut TickitTerm) -> c_int;
-pub fn tickit_term_input_wait(tt: *mut TickitTerm, timeout: *timeval);
+pub fn tickit_term_input_wait(tt: *mut TickitTerm, timeout: *const timeval);
 
-pub fn tickit_term_get_size(tt: *TickitTerm, lines: *mut c_int, cols: *mut c_int);
+pub fn tickit_term_get_size(tt: *const TickitTerm, lines: *mut c_int, cols: *mut c_int);
 pub fn tickit_term_set_size(tt: *mut TickitTerm, lines: c_int, cols: c_int);
 pub fn tickit_term_refresh_size(tt: *mut TickitTerm);
 }
 
-pub type TickitTermEventFn = extern fn (tt: *mut TickitTerm, ev: TickitEventType, args: *mut TickitEvent, data: *mut c_void);
+pub type TickitTermEventFn = Option<extern fn (tt: *mut TickitTerm, ev: TickitEventType, args: *mut TickitEvent, data: *mut c_void)>;
 
 extern
 {
 pub fn tickit_term_bind_event(tt: *mut TickitTerm, ev: TickitEventType, fn_: TickitTermEventFn, data: *mut c_void) -> c_int;
 pub fn tickit_term_unbind_event_id(tt: *mut TickitTerm, id: c_int);
 
-pub fn tickit_term_print(tt: *mut TickitTerm, str_: *c_char);
-//pub fn tickit_term_printf(tt: *mut TickitTerm, fmt: *c_char, ...);
-//pub fn tickit_term_vprintf(tt: *mut TickitTerm, fmt: *c_char, args: va_list);
+pub fn tickit_term_print(tt: *mut TickitTerm, str_: *const c_char);
+//pub fn tickit_term_printf(tt: *mut TickitTerm, fmt: *const c_char, ...);
+//pub fn tickit_term_vprintf(tt: *mut TickitTerm, fmt: *const c_char, args: va_list);
 pub fn tickit_term_goto(tt: *mut TickitTerm, line: c_int, col: c_int) -> c_int;
 pub fn tickit_term_move(tt: *mut TickitTerm, downward: c_int, rightward: c_int);
 pub fn tickit_term_scrollrect(tt: *mut TickitTerm, top: c_int, left: c_int, lines: c_int, cols: c_int, downward: c_int, rightward: c_int) -> c_int;
 
-pub fn tickit_term_chpen(tt: *mut TickitTerm, pen: *TickitPen);
-pub fn tickit_term_setpen(tt: *mut TickitTerm, pen: *TickitPen);
+pub fn tickit_term_chpen(tt: *mut TickitTerm, pen: *const TickitPen);
+pub fn tickit_term_setpen(tt: *mut TickitTerm, pen: *const TickitPen);
 
 pub fn tickit_term_clear(tt: *mut TickitTerm);
 pub fn tickit_term_erasech(tt: *mut TickitTerm, count: c_int, moveend: c_int);
@@ -245,7 +249,6 @@ pub fn tickit_term_erasech(tt: *mut TickitTerm, count: c_int, moveend: c_int);
 #[repr(C)]
 pub enum TickitTermCtl
 {
-  /* This is part of the API so additions must go at the end only */
   TICKIT_TERMCTL_ALTSCREEN = 1,
   TICKIT_TERMCTL_CURSORVIS,
   TICKIT_TERMCTL_MOUSE,
@@ -279,22 +282,22 @@ extern
 {
 pub fn tickit_term_getctl_int(tt: *mut TickitTerm, ctl: TickitTermCtl, value: *mut c_int) -> c_int;
 pub fn tickit_term_setctl_int(tt: *mut TickitTerm, ctl: TickitTermCtl, value: c_int) -> c_int;
-pub fn tickit_term_setctl_str(tt: *mut TickitTerm, ctl: TickitTermCtl, value: *c_char) -> c_int;
+pub fn tickit_term_setctl_str(tt: *mut TickitTerm, ctl: TickitTermCtl, value: *const c_char) -> c_int;
 }
 
 #[repr(C)]
 pub struct TickitStringPos
 {
-  bytes: size_t,
-  codepoints: c_int,
-  graphemes: c_int,
-  columns: c_int,
+  pub bytes: size_t,
+  pub codepoints: c_int,
+  pub graphemes: c_int,
+  pub columns: c_int,
 }
 
 extern
 {
-pub fn tickit_string_count(str_: *c_char, pos: *mut TickitStringPos, limit: *TickitStringPos) -> size_t;
-pub fn tickit_string_countmore(str_: *c_char, pos: *mut TickitStringPos, limit: *TickitStringPos) -> size_t;
+pub fn tickit_string_count(str_: *const c_char, pos: *mut TickitStringPos, limit: *const TickitStringPos) -> size_t;
+pub fn tickit_string_countmore(str_: *const c_char, pos: *mut TickitStringPos, limit: *const TickitStringPos) -> size_t;
 }
 
 #[inline]
@@ -314,8 +317,8 @@ pub unsafe fn INIT_TICKIT_STRINGPOS_LIMIT_BYTES(v: size_t) -> TickitStringPos
 #[inline]
 pub unsafe fn tickit_stringpos_limit_bytes(pos: *mut TickitStringPos, bytes: size_t)
 {
-  (*pos).codepoints = 0;
-  (*pos).graphemes = 0;
+  (*pos).codepoints = -1;
+  (*pos).graphemes = -1;
   (*pos).columns = -1;
   (*pos).bytes = bytes;
 }
@@ -328,8 +331,8 @@ pub unsafe fn INIT_TICKIT_STRINGPOS_LIMIT_CODEPOINTS(v: c_int) -> TickitStringPo
 #[inline]
 pub unsafe fn tickit_stringpos_limit_codepoints(pos: *mut TickitStringPos, codepoints: c_int)
 {
-  (*pos).bytes = 0;
-  (*pos).graphemes = 0;
+  (*pos).bytes = -1;
+  (*pos).graphemes = -1;
   (*pos).columns = -1;
   (*pos).codepoints = codepoints;
 }
@@ -342,8 +345,8 @@ pub unsafe fn INIT_TICKIT_STRINGPOS_LIMIT_GRAPHEMES(v: c_int) -> TickitStringPos
 #[inline]
 pub unsafe fn tickit_stringpos_limit_graphemes(pos: *mut TickitStringPos, graphemes: c_int)
 {
-  (*pos).bytes = 0;
-  (*pos).codepoints = 0;
+  (*pos).bytes = -1;
+  (*pos).codepoints = -1;
   (*pos).columns = -1;
   (*pos).graphemes = graphemes;
 }
@@ -356,15 +359,15 @@ pub unsafe fn INIT_TICKIT_STRINGPOS_LIMIT_COLUMNS(v: c_int) -> TickitStringPos
 #[inline]
 pub unsafe fn tickit_stringpos_limit_columns(pos: *mut TickitStringPos, columns: c_int)
 {
-  (*pos).bytes = 0;
-  (*pos).codepoints = 0;
+  (*pos).bytes = -1;
+  (*pos).codepoints = -1;
   (*pos).graphemes = -1;
   (*pos).columns = columns;
 }
 
 extern
 {
-pub fn tickit_string_mbswidth(str_: *char) -> c_int;
-pub fn tickit_string_byte2col(str_: *char, byte: size_t) -> c_int;
-pub fn tickit_string_col2byte(str_: *char, col: c_int) -> size_t;
+pub fn tickit_string_mbswidth(str_: *const c_char) -> c_int;
+pub fn tickit_string_byte2col(str_: *const c_char, byte: size_t) -> c_int;
+pub fn tickit_string_col2byte(str_: *const c_char, col: c_int) -> size_t;
 }
