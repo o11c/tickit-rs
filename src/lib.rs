@@ -1,6 +1,6 @@
 // versioning: upstream unreleased: 0.0, snapshot on march 1st
 // last number is for changes in this rust binding
-#![crate_id = "tickit#0.0.2014.3.1.0"]
+#![crate_id = "tickit#0.0.2014.5.2.1"]
 #![crate_type = "dylib"]
 
 #![feature(macro_rules)]
@@ -12,6 +12,7 @@ extern crate rustuv;
 
 use libc::c_char;
 use libc::c_int;
+use libc::c_long;
 use libc::c_void;
 use libc::size_t;
 use libc::timeval;
@@ -20,6 +21,8 @@ use c::TickitPenAttr;
 use c::TickitPenAttrType;
 use c::X_Tickit_Mod;
 use c::TickitTermCtl;
+use c::TickitLineStyle;
+use c::TickitLineCaps;
 
 mod bitset_macro;
 pub mod c;
@@ -77,7 +80,7 @@ impl Clone for TickitPen
     {
         unsafe
         {
-            TickitPen{pen: c::tickit_pen_clone(self.pen)}
+            TickitPen{pen: c::tickit_pen_clone(const_(self.pen))}
         }
     }
     fn clone_from(&mut self, other: &TickitPen)
@@ -114,6 +117,13 @@ impl TickitPen
         unsafe
         {
             c::tickit_pen_is_nonempty(const_(self.pen)) != 0
+        }
+    }
+    pub fn nondefault_attr(&self, attr: TickitPenAttr) -> bool
+    {
+        unsafe
+        {
+            c::tickit_pen_nondefault_attr(const_(self.pen), attr) != 0
         }
     }
     pub fn is_nondefault(&self) -> bool
@@ -676,7 +686,7 @@ impl TickitTerm
     {
         unsafe
         {
-            let b: &[i8] = std::mem::transmute(bytes.as_bytes());
+            let b: &[c_char] = std::mem::transmute(bytes.as_bytes());
             c::tickit_term_input_push_bytes(self.tt, b.as_ptr(), b.len() as size_t);
         }
     }
@@ -767,9 +777,8 @@ impl TickitTerm
     {
         unsafe
         {
-            str_.with_c_str(|s| {
-                c::tickit_term_print(self.tt, s);
-            });
+            let s: &[c_char] = std::mem::transmute(str_.as_bytes());
+            c::tickit_term_printn(self.tt, s.as_ptr(), s.len() as size_t);
         }
     }
     pub fn goto(&mut self, line: int, col: int) -> bool
@@ -899,10 +908,9 @@ impl StringPos
     {
         unsafe
         {
+            let s: &[c_char] = std::mem::transmute(str_.as_bytes());
             let mut cpos = pos.to_c();
-            let rv = str_.with_c_str(
-                |s| { c::tickit_string_count(s, &mut cpos, match limit { Some(l) => { &l.to_c() as *const _ } None => { std::ptr::null() } }) }
-            );
+            let rv = c::tickit_string_ncount(s.as_ptr(), s.len() as size_t, &mut cpos, match limit { Some(l) => { &l.to_c() as *const _ } None => { std::ptr::null() } });
             *pos = StringPos::from_c(cpos);
             rv as uint
         }
@@ -911,10 +919,9 @@ impl StringPos
     {
         unsafe
         {
+            let s: &[c_char] = std::mem::transmute(str_.as_bytes());
             let mut cpos = pos.to_c();
-            let rv = str_.with_c_str(
-                |s| { c::tickit_string_countmore(s, &mut cpos, match limit { Some(l) => { &l.to_c() as *const _ } None => { std::ptr::null() } }) }
-            );
+            let rv = c::tickit_string_ncountmore(s.as_ptr(), s.len() as size_t, &mut cpos, match limit { Some(l) => { &l.to_c() as *const _ } None => { std::ptr::null() } });
             *pos = StringPos::from_c(cpos);
             rv as uint
         }
@@ -931,6 +938,17 @@ impl StringPos
             codepoints: 0,
             graphemes: 0,
             columns: 0,
+        }
+    }
+
+    pub fn limit_none() -> StringPos
+    {
+        StringPos
+        {
+            bytes: -1,
+            codepoints: -1,
+            graphemes: -1,
+            columns: -1,
         }
     }
 
@@ -1006,6 +1024,364 @@ pub fn col2byte(str_: &str, col: uint) -> uint
         str_.with_c_str(
             |s| { c::tickit_string_col2byte(s, col as c_int) as uint }
         )
+    }
+}
+
+
+pub struct TickitRenderBuffer
+{
+    rb: *mut c::TickitRenderBuffer,
+}
+
+impl TickitRenderBuffer
+{
+    pub fn new(lines: int, cols: int) -> TickitRenderBuffer
+    {
+        unsafe
+        {
+            TickitRenderBuffer{ rb: c::tickit_renderbuffer_new(lines as c_int, cols as c_int) }
+        }
+    }
+}
+
+impl Drop for TickitRenderBuffer
+{
+    fn drop(&mut self)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_destroy(self.rb);
+        }
+    }
+}
+
+impl TickitRenderBuffer
+{
+    pub fn get_size(&self) -> (int, int)
+    {
+        unsafe
+        {
+            let mut lines: c_int = std::mem::uninitialized();
+            let mut cols: c_int = std::mem::uninitialized();
+            c::tickit_renderbuffer_get_size(const_(self.rb), &mut lines, &mut cols);
+            (lines as int, cols as int)
+        }
+    }
+
+    pub fn translate(&mut self, downward: int, rightward: int)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_translate(self.rb, downward as c_int, rightward as c_int);
+        }
+    }
+    pub fn clip(&mut self, rect: &TickitRect)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_clip(self.rb, &rect.to_c());
+        }
+    }
+    pub fn mask(&mut self, mask: &TickitRect)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_mask(self.rb, &mask.to_c());
+        }
+    }
+
+    pub fn get_cursorpos(&self) -> Option<(int, int)>
+    {
+        unsafe
+        {
+            if c::tickit_renderbuffer_has_cursorpos(const_(self.rb)) != 0
+            {
+                let mut line = std::mem::uninitialized();
+                let mut col = std::mem::uninitialized();
+                c::tickit_renderbuffer_get_cursorpos(const_(self.rb), &mut line, &mut col);
+                Some((line as int, col as int))
+            }
+            else
+            {
+                None
+            }
+        }
+    }
+    pub fn goto(&mut self, line: int, col: int)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_goto(self.rb, line as c_int, col as c_int);
+        }
+    }
+    pub fn ungoto(&mut self)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_ungoto(self.rb);
+        }
+    }
+
+    pub fn setpen(&mut self, pen: &TickitPen)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_setpen(self.rb, const_(pen.pen));
+        }
+    }
+
+    pub fn reset(&mut self)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_reset(self.rb);
+        }
+    }
+
+    pub fn save(&mut self)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_save(self.rb);
+        }
+    }
+    pub fn savepen(&mut self)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_savepen(self.rb);
+        }
+    }
+    pub fn restore(&mut self)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_restore(self.rb);
+        }
+    }
+
+    pub fn skip_at(&mut self, line: int, col: int, len: int)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_skip_at(self.rb, line as c_int, col as c_int, len as c_int);
+        }
+    }
+    pub fn skip(&mut self, len: int)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_skip(self.rb, len as c_int);
+        }
+    }
+    pub fn skip_to(&mut self, col: int)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_skip_to(self.rb, col as c_int);
+        }
+    }
+    pub fn text_at(&mut self, line: int, col: int, text: &str, pen: &TickitPen) -> int
+    {
+        unsafe
+        {
+            text.with_c_str(
+                |t| { c::tickit_renderbuffer_text_at(self.rb, line as c_int, col as c_int, t, const_(pen.pen)) as int }
+            )
+        }
+    }
+    pub fn text(&mut self, text: &str, pen: &TickitPen) -> int
+    {
+        unsafe
+        {
+            text.with_c_str(
+                |t| { c::tickit_renderbuffer_text(self.rb, t, const_(pen.pen)) as int }
+            )
+        }
+    }
+    pub fn erase_at(&mut self, line: int, col: int, len: int, pen: &TickitPen)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_erase_at(self.rb, line as c_int, col as c_int, len as c_int, const_(pen.pen));
+        }
+    }
+    pub fn erase(&mut self, len: int, pen: &TickitPen)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_erase(self.rb, len as c_int, const_(pen.pen));
+        }
+    }
+    pub fn erase_to(&mut self, col: int, pen: &TickitPen)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_erase_to(self.rb, col as c_int, const_(pen.pen));
+        }
+    }
+    pub fn eraserect(&mut self, rect: &TickitRect, pen: &TickitPen)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_eraserect(self.rb, &rect.to_c(), const_(pen.pen));
+        }
+    }
+    pub fn clear(&mut self, pen: &TickitPen)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_clear(self.rb, const_(pen.pen));
+        }
+    }
+    pub fn char_at(&mut self, line: int, col: int, codepoint: char, pen: &TickitPen)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_char_at(self.rb, line as c_int, col as c_int, codepoint as c_long, const_(pen.pen));
+        }
+    }
+    pub fn char(&mut self, codepoint: char, pen: &TickitPen)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_char(self.rb, codepoint as c_long, const_(pen.pen));
+        }
+    }
+}
+
+impl TickitRenderBuffer
+{
+    pub fn hline_at(&mut self, line: int, startcol: int, endcol: int, style: TickitLineStyle, pen: &TickitPen, caps: TickitLineCaps)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_hline_at(self.rb, line as c_int, startcol as c_int, endcol as c_int, style, const_(pen.pen), caps);
+        }
+    }
+    pub fn vline_at(&mut self, startline: int, endline: int, col: int, style: TickitLineStyle, pen: &TickitPen, caps: TickitLineCaps)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_vline_at(self.rb, startline as c_int, endline as c_int, col as c_int, style, const_(pen.pen), caps);
+        }
+    }
+
+    pub fn flush_to_term(&mut self, tt: &mut TickitTerm)
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_flush_to_term(self.rb, tt.tt);
+        }
+    }
+}
+
+pub struct TickitRenderBufferLineMask
+{
+    pub north: TickitLineStyle,
+    pub south: TickitLineStyle,
+    pub east: TickitLineStyle,
+    pub west: TickitLineStyle,
+}
+
+impl TickitRenderBufferLineMask
+{
+    fn from_c(lo: c::TickitRenderBufferLineMask) -> TickitRenderBufferLineMask
+    {
+        unsafe
+        {
+            TickitRenderBufferLineMask{north: std::mem::transmute(lo.north as c_int), south: std::mem::transmute(lo.south as c_int), east: std::mem::transmute(lo.east as c_int), west: std::mem::transmute(lo.west as c_int)}
+        }
+    }
+    #[allow(dead_code)]
+    fn to_c(self) -> c::TickitRenderBufferLineMask
+    {
+        c::TickitRenderBufferLineMask{north: self.north as c_char, south: self.south as c_char, east: self.east as c_char, west: self.west as c_char}
+    }
+}
+
+impl TickitRenderBuffer
+{
+    pub fn get_cell_active(&mut self, line: int, col: int) -> bool
+    {
+        unsafe
+        {
+            c::tickit_renderbuffer_get_cell_active(self.rb, line as c_int, col as c_int) != 0
+        }
+    }
+    pub fn get_cell_text(&mut self, line: int, col: int) -> String
+    {
+        unsafe
+        {
+            let n = c::tickit_renderbuffer_get_cell_text(self.rb, line as c_int, col as c_int, std::ptr::mut_null(), 0);
+            if n > 0
+            {
+                let buf: Vec<u8> = Vec::from_fn(n as uint, |_| { std::mem::uninitialized() });
+                c::tickit_renderbuffer_get_cell_text(self.rb, line as c_int, col as c_int, buf.as_ptr() as *mut c_char, n);
+                std::str::raw::from_utf8_owned(buf)
+            }
+            else
+            {
+                "".to_string()
+            }
+        }
+    }
+    pub fn get_cell_linemask(&mut self, line: int, col: int) -> TickitRenderBufferLineMask
+    {
+        unsafe
+        {
+            let clm = c::tickit_renderbuffer_get_cell_linemask(self.rb, line as c_int, col as c_int);
+            TickitRenderBufferLineMask::from_c(clm)
+        }
+    }
+
+    pub fn get_cell_pen(&mut self, line: int, col: int) -> TickitPen
+    {
+        unsafe
+        {
+            let cpen = c::tickit_renderbuffer_get_cell_pen(self.rb, line as c_int, col as c_int);
+            TickitPen{pen: c::tickit_pen_clone(cpen)}
+        }
+    }
+}
+
+pub enum TickitRenderBufferSpanInfo
+{
+    SkipSpan{pub n_columns: int},
+    TextSpan{pub pen: TickitPen, pub text: String},
+}
+
+impl TickitRenderBuffer
+{
+// returns the text length or -1 on error
+    pub fn get_span(&mut self, line: int, startcol: int) -> TickitRenderBufferSpanInfo
+    {
+        unsafe
+        {
+            let mut span_info: c::TickitRenderBufferSpanInfo = std::mem::uninitialized();
+            span_info.pen = std::ptr::mut_null();
+            // The return value is supposed to be the same as span_info.len,
+            // but due to a bug, it is instead the length you pass in.
+            // Thus, we need to pass in the span_info even the first time.
+            // But this works out just as well for non-text inspections.
+            let badlen = c::tickit_renderbuffer_get_span(self.rb, line as c_int, startcol as c_int, &mut span_info, std::ptr::mut_null(), 0);
+            if badlen == -1
+            {
+                fail!();
+            }
+            if !(span_info.is_active != 0)
+            {
+                SkipSpan{n_columns: span_info.n_columns as int}
+            }
+            else
+            {
+                span_info.pen = c::tickit_pen_new();
+                let goodlen = span_info.len;
+                let buf: Vec<u8> = Vec::from_fn(goodlen as uint, |_| { std::mem::uninitialized() });
+                c::tickit_renderbuffer_get_span(self.rb, line as c_int, startcol as c_int, &mut span_info, buf.as_ptr() as *mut c_char, goodlen);
+                TextSpan{pen: TickitPen{pen: c::tickit_pen_clone(const_(span_info.pen))}, text: std::str::raw::from_utf8_owned(buf)}
+            }
+        }
     }
 }
 

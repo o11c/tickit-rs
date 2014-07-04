@@ -16,6 +16,7 @@ tickit.stamp: src/lib.rs source.stamp
 	${RUSTC} ${RUSTCFLAGS} $< -C link-args="${PKGCONFIG_TERMKEY}"
 	@touch $@
 tickit: tickit.stamp
+.SUFFIXES:
 
 test.stamp: src/test.rs tickit.stamp
 	${RUSTC} ${RUSTCFLAGS} $< -L . --cfg=test -o run-tests

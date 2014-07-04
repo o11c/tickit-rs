@@ -3,6 +3,7 @@
 pub use libc::c_char;
 pub use libc::c_int;
 pub use libc::c_uint;
+pub use libc::c_long;
 pub use libc::c_void;
 pub use libc::size_t;
 pub use libc::timeval;
@@ -90,11 +91,13 @@ pub enum TickitPenAttrType
 extern
 {
 pub fn tickit_pen_new() -> *mut TickitPen;
-pub fn tickit_pen_clone(orig: *mut TickitPen) -> *mut TickitPen;
+// pub fn tickit_pen_newattrs(repeat (TickitPenAttr, c_int), then -1) -> *mut TickitPen;
+pub fn tickit_pen_clone(orig: *const TickitPen) -> *mut TickitPen;
 pub fn tickit_pen_destroy(pen: *mut TickitPen);
 
 pub fn tickit_pen_has_attr(pen: *const TickitPen, attr: TickitPenAttr) -> c_int;
 pub fn tickit_pen_is_nonempty(pen: *const TickitPen) -> c_int;
+pub fn tickit_pen_nondefault_attr(pen: *const TickitPen, attr: TickitPenAttr) -> c_int;
 pub fn tickit_pen_is_nondefault(pen: *const TickitPen) -> c_int;
 
 pub fn tickit_pen_get_bool_attr(pen: *const TickitPen, attr: TickitPenAttr) -> c_int;
@@ -233,6 +236,7 @@ pub fn tickit_term_bind_event(tt: *mut TickitTerm, ev: TickitEventType, fn_: Tic
 pub fn tickit_term_unbind_event_id(tt: *mut TickitTerm, id: c_int);
 
 pub fn tickit_term_print(tt: *mut TickitTerm, str_: *const c_char);
+pub fn tickit_term_printn(tt: *mut TickitTerm, str_: *const c_char, len: size_t);
 //pub fn tickit_term_printf(tt: *mut TickitTerm, fmt: *const c_char, ...);
 //pub fn tickit_term_vprintf(tt: *mut TickitTerm, fmt: *const c_char, args: va_list);
 pub fn tickit_term_goto(tt: *mut TickitTerm, line: c_int, col: c_int) -> c_int;
@@ -298,6 +302,8 @@ extern
 {
 pub fn tickit_string_count(str_: *const c_char, pos: *mut TickitStringPos, limit: *const TickitStringPos) -> size_t;
 pub fn tickit_string_countmore(str_: *const c_char, pos: *mut TickitStringPos, limit: *const TickitStringPos) -> size_t;
+pub fn tickit_string_ncount(str_: *const c_char, len: size_t, pos: *mut TickitStringPos, limit: *const TickitStringPos) -> size_t;
+pub fn tickit_string_ncountmore(str_: *const c_char, len: size_t, pos: *mut TickitStringPos, limit: *const TickitStringPos) -> size_t;
 }
 
 #[inline]
@@ -309,6 +315,19 @@ pub unsafe fn tickit_stringpos_zero(pos: *mut TickitStringPos)
   (*pos).columns = 0;
 }
 
+pub static INIT_TICKIT_STRINGPOS_LIMIT_NONE: TickitStringPos =
+{
+    TickitStringPos{bytes: -1, codepoints: -1, graphemes: -1, columns: -1}
+};
+#[inline]
+pub unsafe fn tickit_stringpos_limit_none(pos: *mut TickitStringPos)
+{
+  (*pos).bytes = -1;
+  (*pos).codepoints = -1;
+  (*pos).graphemes = -1;
+  (*pos).columns = -1;
+}
+
 #[inline] #[allow(non_snake_case_functions)]
 pub unsafe fn INIT_TICKIT_STRINGPOS_LIMIT_BYTES(v: size_t) -> TickitStringPos
 {
@@ -317,10 +336,10 @@ pub unsafe fn INIT_TICKIT_STRINGPOS_LIMIT_BYTES(v: size_t) -> TickitStringPos
 #[inline]
 pub unsafe fn tickit_stringpos_limit_bytes(pos: *mut TickitStringPos, bytes: size_t)
 {
+  (*pos).bytes = bytes;
   (*pos).codepoints = -1;
   (*pos).graphemes = -1;
   (*pos).columns = -1;
-  (*pos).bytes = bytes;
 }
 
 #[inline] #[allow(non_snake_case_functions)]
@@ -332,9 +351,9 @@ pub unsafe fn INIT_TICKIT_STRINGPOS_LIMIT_CODEPOINTS(v: c_int) -> TickitStringPo
 pub unsafe fn tickit_stringpos_limit_codepoints(pos: *mut TickitStringPos, codepoints: c_int)
 {
   (*pos).bytes = -1;
+  (*pos).codepoints = codepoints;
   (*pos).graphemes = -1;
   (*pos).columns = -1;
-  (*pos).codepoints = codepoints;
 }
 
 #[inline] #[allow(non_snake_case_functions)]
@@ -347,8 +366,8 @@ pub unsafe fn tickit_stringpos_limit_graphemes(pos: *mut TickitStringPos, graphe
 {
   (*pos).bytes = -1;
   (*pos).codepoints = -1;
-  (*pos).columns = -1;
   (*pos).graphemes = graphemes;
+  (*pos).columns = -1;
 }
 
 #[inline] #[allow(non_snake_case_functions)]
@@ -370,4 +389,104 @@ extern
 pub fn tickit_string_mbswidth(str_: *const c_char) -> c_int;
 pub fn tickit_string_byte2col(str_: *const c_char, byte: size_t) -> c_int;
 pub fn tickit_string_col2byte(str_: *const c_char, col: c_int) -> size_t;
+}
+
+
+pub struct TickitRenderBuffer;
+
+extern
+{
+pub fn tickit_renderbuffer_new(lines: c_int, cols: c_int) -> *mut TickitRenderBuffer;
+pub fn tickit_renderbuffer_destroy(rb: *mut TickitRenderBuffer);
+
+pub fn tickit_renderbuffer_get_size(rb: *const TickitRenderBuffer, lines: *mut c_int, cols: *mut c_int);
+
+pub fn tickit_renderbuffer_translate(rb: *mut TickitRenderBuffer, downward: c_int, rightward: c_int);
+pub fn tickit_renderbuffer_clip(rb: *mut TickitRenderBuffer, rect: *const TickitRect);
+pub fn tickit_renderbuffer_mask(rb: *mut TickitRenderBuffer, mask: *const TickitRect);
+
+pub fn tickit_renderbuffer_has_cursorpos(rb: *const TickitRenderBuffer) -> c_int;
+pub fn tickit_renderbuffer_get_cursorpos(rb: *const TickitRenderBuffer, line: *mut c_int, col: *mut c_int);
+pub fn tickit_renderbuffer_goto(rb: *mut TickitRenderBuffer, line: c_int, col: c_int);
+pub fn tickit_renderbuffer_ungoto(rb: *mut TickitRenderBuffer);
+
+pub fn tickit_renderbuffer_setpen(rb: *mut TickitRenderBuffer, pen: *const TickitPen);
+
+pub fn tickit_renderbuffer_reset(rb: *mut TickitRenderBuffer);
+
+pub fn tickit_renderbuffer_save(rb: *mut TickitRenderBuffer);
+pub fn tickit_renderbuffer_savepen(rb: *mut TickitRenderBuffer);
+pub fn tickit_renderbuffer_restore(rb: *mut TickitRenderBuffer);
+
+pub fn tickit_renderbuffer_skip_at(rb: *mut TickitRenderBuffer, line: c_int, col: c_int, len: c_int);
+pub fn tickit_renderbuffer_skip(rb: *mut TickitRenderBuffer, len: c_int);
+pub fn tickit_renderbuffer_skip_to(rb: *mut TickitRenderBuffer, col: c_int);
+pub fn tickit_renderbuffer_text_at(rb: *mut TickitRenderBuffer, line: c_int, col: c_int, text: *const c_char, pen: *const TickitPen) -> c_int;
+pub fn tickit_renderbuffer_text(rb: *mut TickitRenderBuffer, text: *const c_char, pen: *const TickitPen) -> c_int;
+pub fn tickit_renderbuffer_erase_at(rb: *mut TickitRenderBuffer, line: c_int, col: c_int, len: c_int, pen: *const TickitPen);
+pub fn tickit_renderbuffer_erase(rb: *mut TickitRenderBuffer, len: c_int, pen: *const TickitPen);
+pub fn tickit_renderbuffer_erase_to(rb: *mut TickitRenderBuffer, col: c_int, pen: *const TickitPen);
+pub fn tickit_renderbuffer_eraserect(rb: *mut TickitRenderBuffer, rect: *const TickitRect, pen: *const TickitPen);
+pub fn tickit_renderbuffer_clear(rb: *mut TickitRenderBuffer, pen: *const TickitPen);
+pub fn tickit_renderbuffer_char_at(rb: *mut TickitRenderBuffer, line: c_int, col: c_int, codepoint: c_long, pen: *const TickitPen);
+pub fn tickit_renderbuffer_char(rb: *mut TickitRenderBuffer, codepoint: c_long, pen: *const TickitPen);
+}
+
+#[repr(C)]
+pub enum TickitLineStyle
+{
+  TICKIT_LINE_SINGLE = 1,
+  TICKIT_LINE_DOUBLE = 2,
+  TICKIT_LINE_THICK  = 3,
+}
+
+bitset!(TickitLineCaps: c_int
+{
+  TICKIT_LINECAP_START = 0x01,
+  TICKIT_LINECAP_END   = 0x02,
+  TICKIT_LINECAP_BOTH  = 0x03
+})
+
+extern
+{
+pub fn tickit_renderbuffer_hline_at(rb: *mut TickitRenderBuffer, line: c_int, startcol: c_int, endcol: c_int, style: TickitLineStyle, pen: *const TickitPen, caps: TickitLineCaps);
+pub fn tickit_renderbuffer_vline_at(rb: *mut TickitRenderBuffer, startline: c_int, endline: c_int, col: c_int, style: TickitLineStyle, pen: *const TickitPen, caps: TickitLineCaps);
+
+pub fn tickit_renderbuffer_flush_to_term(rb: *mut TickitRenderBuffer, tt: *mut TickitTerm);
+}
+
+// This API is still somewhat experimental
+
+#[repr(C)]
+pub struct TickitRenderBufferLineMask
+{
+  pub north: c_char,
+  pub south: c_char,
+  pub east: c_char,
+  pub west: c_char,
+}
+
+extern
+{
+pub fn tickit_renderbuffer_get_cell_active(rb: *mut TickitRenderBuffer, line: c_int, col: c_int) -> c_int;
+pub fn tickit_renderbuffer_get_cell_text(rb: *mut TickitRenderBuffer, line: c_int, col: c_int, buffer: *mut c_char, len: size_t) -> size_t;
+pub fn tickit_renderbuffer_get_cell_linemask(rb: *mut TickitRenderBuffer, line: c_int, col: c_int) -> TickitRenderBufferLineMask;
+
+pub fn tickit_renderbuffer_get_cell_pen(rb: *mut TickitRenderBuffer, line: c_int, col: c_int) -> *const TickitPen;
+}
+
+#[repr(C)]
+pub struct TickitRenderBufferSpanInfo
+{
+  pub is_active: c_int,
+  pub n_columns: c_int,
+  pub text: *mut c_char,
+  pub len: size_t,
+  pub pen: *mut TickitPen,
+}
+
+extern
+{
+// returns the text length or -1 on error
+pub fn tickit_renderbuffer_get_span(rb: *mut TickitRenderBuffer, line: c_int, startcol: c_int, info: *mut TickitRenderBufferSpanInfo, buffer: *mut c_char, len: size_t) -> size_t;
 }
