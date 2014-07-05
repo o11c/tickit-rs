@@ -4,101 +4,81 @@ extern crate native;
 extern crate tickit;
 
 #[start]
-fn start(argc: int, argv: *const *const u8) -> int {
+fn start(argc: int, argv: *const *const u8) -> int
+{
     native::start(argc, argv, main)
 }
 
 fn main()
 {
-    println!("demo-xterm256 not yet ported");
-}
+    let hack = tickit::signal_hacks::RemoteGreenSignalListener::new();
 
-/*
-#include "tickit.h"
+    let mut tt = match tickit::TickitTerm::new()
+    {
+        Ok(o) => { o }
+        Err(errno) => { fail!("Cannot create TickitTerm - errno #{}", errno); }
+    };
 
-#include <errno.h>
-#include <signal.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
+    tt.set_input_fd(libc::STDIN_FILENO);
+    tt.set_output_fd(libc::STDOUT_FILENO);
+    let await = libc::timeval{ tv_sec: 0, tv_usec: 50000 };
+    tt.await_started(Some(await));
 
-int still_running = 1;
 
-static void sigint(int sig)
-{
-  still_running = 0;
-}
+    tt.setctl_int(tickit::c::TICKIT_TERMCTL_ALTSCREEN, 1);
+    tt.setctl_int(tickit::c::TICKIT_TERMCTL_CURSORVIS, 0);
+    tt.setctl_str(tickit::c::TICKIT_TERMCTL_TITLE_TEXT, "XTerm256 colour demo");
+    tt.clear();
 
-int main(int argc, char *argv[])
-{
-  TickitTerm *tt;
-  TickitPen *default_pen, *pen;
+    let default_pen = tickit::TickitPen::new();
 
-  tt = tickit_term_new();
-  if(!tt) {
-    fprintf(stderr, "Cannot create TickitTerm - %s\n", strerror(errno));
-    return 1;
-  }
+    let mut pen = tickit::TickitPen::new();
 
-  tickit_term_set_input_fd(tt, STDIN_FILENO);
-  tickit_term_set_output_fd(tt, STDOUT_FILENO);
-  const struct timeval await = (const struct timeval){ .tv_sec = 0, .tv_usec = 50000 };
-  tickit_term_await_started(tt, &await);
+    tt.goto(0, 0);
+    tt.setpen(&default_pen);
+    tt.print("ANSI");
 
-  tickit_term_setctl_int(tt, TICKIT_TERMCTL_ALTSCREEN, 1);
-  tickit_term_setctl_int(tt, TICKIT_TERMCTL_CURSORVIS, 0);
-  tickit_term_setctl_str(tt, TICKIT_TERMCTL_TITLE_TEXT, "XTerm256 colour demo");
-  tickit_term_clear(tt);
-
-  default_pen = tickit_pen_new();
-
-  pen = tickit_pen_new();
-
-  tickit_term_goto(tt, 0, 0);
-  tickit_term_setpen(tt, default_pen);
-  tickit_term_print(tt, "ANSI");
-
-  tickit_term_goto(tt, 2, 0);
-  for(int i = 0; i < 16; i++) {
-    tickit_pen_set_colour_attr(pen, TICKIT_PEN_BG, i);
-    tickit_term_setpen(tt, pen);
-    tickit_term_printf(tt, "[%02d]", i);
-  }
-
-  tickit_term_goto(tt, 4, 0);
-  tickit_term_setpen(tt, default_pen);
-  tickit_term_print(tt, "216 RGB cube");
-
-  for(int y = 0; y < 6; y++) {
-    tickit_term_goto(tt, 6+y, 0);
-    for(int x = 0; x < 36; x++) {
-      tickit_pen_set_colour_attr(pen, TICKIT_PEN_BG, y*36 + x + 16);
-      tickit_term_setpen(tt, pen);
-      tickit_term_print(tt, "  ");
+    tt.goto(2, 0);
+    for i in range(0, 16)
+    {
+        pen.set_colour_attr(tickit::c::TICKIT_PEN_BG, i);
+        tt.setpen(&pen);
+        tt.print(format!("[{:02d}]", i).as_slice());
     }
-  }
 
-  tickit_term_goto(tt, 13, 0);
-  tickit_term_setpen(tt, default_pen);
-  tickit_term_print(tt, "24 Greyscale ramp");
+    tt.goto(4, 0);
+    tt.setpen(&default_pen);
+    tt.print("216 RGB cube");
 
-  tickit_term_goto(tt, 15, 0);
-  for(int i = 0; i < 24; i++) {
-    tickit_pen_set_colour_attr(pen, TICKIT_PEN_BG, 232 + i);
-    if(i > 12)
-      tickit_pen_set_colour_attr(pen, TICKIT_PEN_FG, 0);
-    tickit_term_setpen(tt, pen);
-    tickit_term_printf(tt, "g%02d", i);
-  }
+    for y in range(0, 6)
+    {
+        tt.goto(6+y, 0);
+        for x in range(0, 36)
+        {
+            pen.set_colour_attr(tickit::c::TICKIT_PEN_BG, y*36 + x + 16);
+            tt.setpen(&pen);
+            tt.print("  ");
+        }
+    }
 
-  signal(SIGINT, sigint);
+    tt.goto(13, 0);
+    tt.setpen(&default_pen);
+    tt.print("24 Greyscale ramp");
 
-  while(still_running)
-    tickit_term_input_wait(tt, NULL);
+    tt.goto(15, 0);
+    for i in range(0, 24)
+    {
+        pen.set_colour_attr(tickit::c::TICKIT_PEN_BG, 232 + i);
+        if i > 12
+        {
+            pen.set_colour_attr(tickit::c::TICKIT_PEN_FG, 0);
+        }
+        tt.setpen(&pen);
+        tt.print(format!("g{:02d}", i).as_slice());
+    }
 
-  tickit_term_destroy(tt);
-
-  return 0;
+    while hack.rx.try_recv().is_err()
+    {
+        tt.input_wait(None);
+    }
 }
-*/

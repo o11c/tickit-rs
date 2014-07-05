@@ -138,7 +138,7 @@ fn main()
     let mut tt = match tickit::TickitTerm::new()
     {
         Ok(o) => { o }
-        Err(errno) => { fail!(format!("Cannot create TickitTerm - errno #{}", errno)); }
+        Err(errno) => { fail!("Cannot create TickitTerm - errno #{}", errno); }
     };
 
     tt.set_input_fd(libc::STDIN_FILENO);

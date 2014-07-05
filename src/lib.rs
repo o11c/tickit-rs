@@ -145,7 +145,7 @@ impl TickitPen
     {
         unsafe
         {
-            c::tickit_pen_set_bool_attr(self.pen, attr, if val { 1 } else { 0 });
+            c::tickit_pen_set_bool_attr(self.pen, attr, val as c_int);
         }
     }
 
@@ -229,7 +229,7 @@ impl TickitPen
     {
         unsafe
         {
-            c::tickit_pen_copy(self.pen, const_(src.pen), if overwrite { 1 } else { 0 });
+            c::tickit_pen_copy(self.pen, const_(src.pen), overwrite as c_int);
         }
     }
 }
@@ -678,7 +678,7 @@ impl TickitTerm
     {
         unsafe
         {
-            c::tickit_term_set_utf8(self.tt, if utf8 { 1 } else { 0 });
+            c::tickit_term_set_utf8(self.tt, utf8 as c_int);
         }
     }
 

@@ -4,138 +4,141 @@ extern crate native;
 extern crate tickit;
 
 #[start]
-fn start(argc: int, argv: *const *const u8) -> int {
+fn start(argc: int, argv: *const *const u8) -> int
+{
     native::start(argc, argv, main)
+}
+
+// TODO - figure out how to write the API for event handlers with data,
+// so I can avoid this unsafety.
+static mut vis: bool = true;
+static mut blink: bool = true;
+static mut shape: tickit::c::TickitTermCursorShape = tickit::c::TICKIT_TERM_CURSORSHAPE_BLOCK;
+
+
+fn render_modes(tt: &mut tickit::TickitTerm)
+{
+    tt.goto(5, 3);
+    tt.print("Cursor visible:  ");
+    tt.print(if unsafe { vis } { "| >On< |  Off  |" } else { "|  On  | >Off< |" });
+
+    tt.goto(7, 3);
+    tt.print("Cursor blink:    ");
+    tt.print(if unsafe { blink } { "| >On< |  Off  |" } else { "|  On  | >Off< |" });
+
+    tt.goto(9, 3);
+    tt.print("Cursor shape:    ");
+    tt.print(
+        match unsafe { shape }
+        {
+            tickit::c::TICKIT_TERM_CURSORSHAPE_BLOCK => { "| >Block< |  Under  |  Bar  |" }
+            tickit::c::TICKIT_TERM_CURSORSHAPE_UNDER => { "|  Block  | >Under< |  Bar  |" }
+            tickit::c::TICKIT_TERM_CURSORSHAPE_LEFT_BAR => { "|  Block  |  Under  | >Bar< |" }
+        }
+    );
+
+    tt.goto(20, 10);
+    tt.print("Cursor  >   <");
+    tt.goto(20, 20);
+}
+
+fn event(tt: &mut tickit::TickitTerm, ev: &tickit::TickitEvent)
+{
+    let (line, col) = match *ev
+    {
+        tickit::MouseEvent(tickit::MousePressEvent{button: 1, line, col, mod_: _}) =>
+        {
+            (line, col)
+        }
+        _ => { return; }
+    };
+
+    if line == 5
+    {
+        if col >= 21 && col <= 26
+        {
+            unsafe { vis = true; }
+        }
+        else if col >= 28 && col <= 34
+        {
+            unsafe { vis = false; }
+        }
+        else
+        {
+            return;
+        }
+
+        tt.setctl_int(tickit::c::TICKIT_TERMCTL_CURSORVIS, unsafe { vis } as int);
+    }
+
+    if line == 7
+    {
+        if col >= 21 && col <= 26
+        {
+            unsafe { blink = true; }
+        }
+        else if col >= 28 && col <= 34
+        {
+            unsafe { blink = false; }
+        }
+        else
+        {
+            return;
+        }
+
+        tt.setctl_int(tickit::c::TICKIT_TERMCTL_CURSORBLINK, unsafe { blink } as int);
+    }
+
+    if line == 9
+    {
+        if col >= 21 && col <= 29
+        {
+            unsafe { shape = tickit::c::TICKIT_TERM_CURSORSHAPE_BLOCK; }
+        }
+        else if col >= 31 && col <= 39
+        {
+            unsafe { shape = tickit::c::TICKIT_TERM_CURSORSHAPE_UNDER; }
+        }
+        else if col >= 40 && col <= 47
+        {
+            unsafe { shape = tickit::c::TICKIT_TERM_CURSORSHAPE_LEFT_BAR; }
+        }
+        else
+        {
+            return;
+        }
+
+        tt.setctl_int(tickit::c::TICKIT_TERMCTL_CURSORSHAPE, unsafe { shape } as int);
+    }
+
+    render_modes(tt);
 }
 
 fn main()
 {
-    println!("demo-termctl not yet ported");
+    let hack = tickit::signal_hacks::RemoteGreenSignalListener::new();
+
+    let mut tt = match tickit::TickitTerm::new()
+    {
+        Ok(o) => { o }
+        Err(errno) => { fail!("Cannot create TickitTerm - errno #{}", errno); }
+    };
+
+    tt.set_input_fd(libc::STDIN_FILENO);
+    tt.set_output_fd(libc::STDOUT_FILENO);
+    let await = libc::timeval{ tv_sec: 0, tv_usec: 50000 };
+    tt.await_started(Some(await));
+
+    tt.setctl_int(tickit::c::TICKIT_TERMCTL_ALTSCREEN, 1);
+    tt.setctl_int(tickit::c::TICKIT_TERMCTL_MOUSE, tickit::c::TICKIT_TERM_MOUSEMODE_CLICK as int);
+    tt.clear();
+
+    tt.x_bind_event_forever(tickit::c::TICKIT_EV_MOUSE, event);
+
+    render_modes(&mut tt);
+
+    while hack.rx.try_recv().is_err()
+    {
+        tt.input_wait(None);
+    }
 }
-
-/*
-#include "tickit.h"
-
-#include <errno.h>
-#include <signal.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-
-int still_running = 1;
-
-static struct {
-  int vis : 1;
-  int blink : 1;
-  unsigned int shape : 2;
-} modes;
-
-static void sigint(int sig)
-{
-  still_running = 0;
-}
-
-static void render_modes(TickitTerm *tt)
-{
-  tickit_term_goto(tt, 5, 3);
-  tickit_term_print(tt, "Cursor visible:  ");
-  tickit_term_print(tt, modes.vis   ? "| >On< |  Off  |" : "|  On  | >Off< |");
-
-  tickit_term_goto(tt, 7, 3);
-  tickit_term_print(tt, "Cursor blink:    ");
-  tickit_term_print(tt, modes.blink ? "| >On< |  Off  |" : "|  On  | >Off< |");
-
-  tickit_term_goto(tt, 9, 3);
-  tickit_term_print(tt, "Cursor shape:    ");
-  tickit_term_print(tt, modes.shape == TICKIT_TERM_CURSORSHAPE_BLOCK ? "| >Block< |  Under  |  Bar  |" :
-                        modes.shape == TICKIT_TERM_CURSORSHAPE_UNDER ? "|  Block  | >Under< |  Bar  |" :
-                                                                       "|  Block  |  Under  | >Bar< |");
-
-  tickit_term_goto(tt, 20, 10);
-  tickit_term_print(tt, "Cursor  >   <");
-  tickit_term_goto(tt, 20, 20);
-}
-
-static void event(TickitTerm *tt, TickitEventType ev, TickitEvent *args, void *data)
-{
-  if(ev != TICKIT_EV_MOUSE)
-    return;
-
-  if(args->type != TICKIT_MOUSEEV_PRESS || args->button != 1)
-    return;
-
-  if(args->line == 5) {
-    if(args->col >= 21 && args->col <= 26)
-      modes.vis = 1;
-    else if(args->col >= 28 && args->col <= 34)
-      modes.vis = 0;
-    else
-      return;
-
-    tickit_term_setctl_int(tt, TICKIT_TERMCTL_CURSORVIS, modes.vis);
-  }
-
-  if(args->line == 7) {
-    if(args->col >= 21 && args->col <= 26)
-      modes.blink = 1;
-    else if(args->col >= 28 && args->col <= 34)
-      modes.blink = 0;
-    else
-      return;
-
-    tickit_term_setctl_int(tt, TICKIT_TERMCTL_CURSORBLINK, modes.blink);
-  }
-
-  if(args->line == 9) {
-    if(args->col >= 21 && args->col <= 29)
-      modes.shape = TICKIT_TERM_CURSORSHAPE_BLOCK;
-    else if(args->col >= 31 && args->col <= 39)
-      modes.shape = TICKIT_TERM_CURSORSHAPE_UNDER;
-    else if(args->col >= 40 && args->col <= 47)
-      modes.shape = TICKIT_TERM_CURSORSHAPE_LEFT_BAR;
-    else
-      return;
-
-    tickit_term_setctl_int(tt, TICKIT_TERMCTL_CURSORSHAPE, modes.shape);
-  }
-
-  render_modes(tt);
-}
-
-int main(int argc, char *argv[])
-{
-  TickitTerm *tt;
-
-  tt = tickit_term_new();
-  if(!tt) {
-    fprintf(stderr, "Cannot create TickitTerm - %s\n", strerror(errno));
-    return 1;
-  }
-
-  tickit_term_set_input_fd(tt, STDIN_FILENO);
-  tickit_term_set_output_fd(tt, STDOUT_FILENO);
-  const struct timeval await = (const struct timeval){ .tv_sec = 0, .tv_usec = 50000 };
-  tickit_term_await_started(tt, &await);
-
-  tickit_term_setctl_int(tt, TICKIT_TERMCTL_ALTSCREEN, 1);
-  tickit_term_setctl_int(tt, TICKIT_TERMCTL_MOUSE, TICKIT_TERM_MOUSEMODE_CLICK);
-  tickit_term_clear(tt);
-
-  tickit_term_bind_event(tt, TICKIT_EV_MOUSE, event, NULL);
-
-  modes.vis = 1;
-  modes.blink = 1;
-  modes.shape = TICKIT_TERM_CURSORSHAPE_BLOCK;
-
-  render_modes(tt);
-
-  signal(SIGINT, sigint);
-
-  while(still_running)
-    tickit_term_input_wait(tt, NULL);
-
-  tickit_term_destroy(tt);
-
-  return 0;
-}
-*/
