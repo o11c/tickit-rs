@@ -9,11 +9,11 @@ demo: $(patsubst examples/demo-%.rs,demo-%,$(wildcard examples/demo-*.rs))
 demo-%: examples/demo-%.rs tickit.stamp
 	${RUSTC} ${RUSTCFLAGS} $< -L .
 
-source.stamp: $(filter-out src/test.rs,$(wildcard src/*.rs))
+source.stamp: $(filter-out src/test.rs,$(wildcard src/*.rs src/*/*.rs))
 	@touch $@
 
 tickit.stamp: src/lib.rs source.stamp
-	${RUSTC} ${RUSTCFLAGS} $< -C link-args="${PKGCONFIG_TICKIT}"
+	${RUSTC} ${RUSTCFLAGS} $< -C link-args="${PKGCONFIG_TICKIT}" -C extra_filename=-rust
 	@touch $@
 tickit: tickit.stamp
 .SUFFIXES:

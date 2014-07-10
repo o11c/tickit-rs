@@ -16,7 +16,7 @@ fn render_modifier(tt: &mut tickit::TickitTerm, mods: tickit::c::X_Tickit_Mod)
         return;
     }
     let mut pipe: int = 0;
-    tt.erasech(3, 1);
+    tt.erasech(3, Some(true));
     tt.print("<");
 
     if !(mods & tickit::c::TICKIT_MOD_SHIFT).is_empty()
@@ -57,7 +57,7 @@ fn render_key<'a>(tt: &mut tickit::TickitTerm, ev: Option<&tickit::TickitKeyEven
     };
     tt.print(str_);
     render_modifier(tt, mods);
-    tt.erasech(30, -1);
+    tt.erasech(30, None);
 }
 
 fn render_mouse(tt: &mut tickit::TickitTerm, ev: Option<&tickit::TickitMouseEvent>)
@@ -96,7 +96,7 @@ fn render_mouse(tt: &mut tickit::TickitTerm, ev: Option<&tickit::TickitMouseEven
     };
 
     render_modifier(tt, mods);
-    tt.erasech(20, -1);
+    tt.erasech(20, None);
 }
 
 fn event(tt: &mut tickit::TickitTerm, ev: &tickit::TickitEvent)
@@ -105,7 +105,6 @@ fn event(tt: &mut tickit::TickitTerm, ev: &tickit::TickitEvent)
     {
         tickit::ResizeEvent{..} => {}
         tickit::ChangeEvent => {}
-        tickit::UnbindEvent => {}
 
         tickit::KeyEvent(key) =>
         {

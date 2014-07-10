@@ -21,7 +21,6 @@ bitset!(TickitEventType: c_uint
 #[repr(C)]
 pub enum TickitKeyEventType
 {
-  X_TICKIT_KEYEV_NONE = -1,
   TICKIT_KEYEV_KEY = 1,
   TICKIT_KEYEV_TEXT,
 }
@@ -29,14 +28,13 @@ pub enum TickitKeyEventType
 #[repr(C)] #[deriving(PartialEq)]
 pub enum TickitMouseEventType
 {
-  X_TICKIT_MOUSEEV_NONE = -1,
   TICKIT_MOUSEEV_PRESS = 1,
   TICKIT_MOUSEEV_DRAG,
   TICKIT_MOUSEEV_RELEASE,
   TICKIT_MOUSEEV_WHEEL,
 }
 
-#[repr(C)] #[deriving(PartialEq)]
+#[repr(C)] #[deriving(PartialEq, Show)]
 pub enum X_Tickit_MouseWheel
 {
   TICKIT_MOUSEWHEEL_UP = 1,
@@ -63,11 +61,9 @@ pub struct TickitEvent
 
 pub struct TickitPen;
 
-#[repr(C)]
+#[repr(C)] #[deriving(PartialEq, Show)]
 pub enum TickitPenAttr
 {
-  TICKIT_PEN_NONE = -1,
-
   TICKIT_PEN_FG,         /* colour */
   TICKIT_PEN_BG,         /* colour */
   TICKIT_PEN_BOLD,       /* bool */
@@ -80,7 +76,7 @@ pub enum TickitPenAttr
   TICKIT_N_PEN_ATTRS
 }
 
-#[repr(C)]
+#[repr(C)] #[deriving(PartialEq, Show)]
 pub enum TickitPenAttrType
 {
   TICKIT_PENTYPE_BOOL,
@@ -122,9 +118,22 @@ pub fn tickit_pen_copy(dst: *mut TickitPen, src: *const TickitPen, overwrite: c_
 
 pub type TickitPenEventFn = Option<extern fn(pen: *mut TickitPen, ev: TickitEventType, args: *mut TickitEvent, data: *mut c_void)>;
 
+// https://github.com/rust-lang/rust/issues/15533
+mod hack1
+{
+use super::{TickitPen,TickitEventType,TickitPenEventFn};
+use super::{c_void,c_int};
 extern
 {
 pub fn tickit_pen_bind_event(tt: *mut TickitPen, ev: TickitEventType, fn_: TickitPenEventFn, data: *mut c_void) -> c_int;
+}
+}
+pub unsafe fn tickit_pen_bind_event(tt: *mut TickitPen, ev: TickitEventType, fn_: TickitPenEventFn, data: *mut c_void) -> c_int
+{
+    hack1::tickit_pen_bind_event(tt, ev, fn_, data)
+}
+extern
+{
 pub fn tickit_pen_unbind_event_id(tt: *mut TickitPen, id: c_int);
 
 pub fn tickit_pen_attrtype(attr: TickitPenAttr) -> TickitPenAttrType;
@@ -205,7 +214,22 @@ pub fn tickit_term_get_termtype(tt: *mut TickitTerm) -> *const c_char;
 
 pub fn tickit_term_set_output_fd(tt: *mut TickitTerm, fd: c_int);
 pub fn tickit_term_get_output_fd(tt: *const TickitTerm) -> c_int;
+}
+mod hack3
+{
+use super::{TickitTerm,TickitTermOutputFunc};
+use super::{c_void};
+extern
+{
 pub fn tickit_term_set_output_func(tt: *mut TickitTerm, fn_: TickitTermOutputFunc, user: *mut c_void);
+}
+}
+pub unsafe fn tickit_term_set_output_func(tt: *mut TickitTerm, fn_: TickitTermOutputFunc, user: *mut c_void)
+{
+    hack3::tickit_term_set_output_func(tt, fn_, user);
+}
+extern
+{
 pub fn tickit_term_set_output_buffer(tt: *mut TickitTerm, len: size_t);
 
 pub fn tickit_term_await_started(tt: *mut TickitTerm, timeout: *const timeval);
@@ -230,9 +254,22 @@ pub fn tickit_term_refresh_size(tt: *mut TickitTerm);
 
 pub type TickitTermEventFn = Option<extern fn (tt: *mut TickitTerm, ev: TickitEventType, args: *mut TickitEvent, data: *mut c_void)>;
 
+// https://github.com/rust-lang/rust/issues/15533
+mod hack2
+{
+use super::{TickitTerm,TickitEventType,TickitTermEventFn};
+use super::{c_void,c_int};
 extern
 {
 pub fn tickit_term_bind_event(tt: *mut TickitTerm, ev: TickitEventType, fn_: TickitTermEventFn, data: *mut c_void) -> c_int;
+}
+}
+pub unsafe fn tickit_term_bind_event(tt: *mut TickitTerm, ev: TickitEventType, fn_: TickitTermEventFn, data: *mut c_void) -> c_int
+{
+    hack2::tickit_term_bind_event(tt, ev, fn_, data)
+}
+extern
+{
 pub fn tickit_term_unbind_event_id(tt: *mut TickitTerm, id: c_int);
 
 pub fn tickit_term_print(tt: *mut TickitTerm, str_: *const c_char);
@@ -432,9 +469,10 @@ pub fn tickit_renderbuffer_char_at(rb: *mut TickitRenderBuffer, line: c_int, col
 pub fn tickit_renderbuffer_char(rb: *mut TickitRenderBuffer, codepoint: c_long, pen: *const TickitPen);
 }
 
-#[repr(C)]
+#[repr(C)] #[deriving(PartialEq,Show)]
 pub enum TickitLineStyle
 {
+  X_TICKIT_LINE_NONE = 0,
   TICKIT_LINE_SINGLE = 1,
   TICKIT_LINE_DOUBLE = 2,
   TICKIT_LINE_THICK  = 3,
@@ -442,6 +480,7 @@ pub enum TickitLineStyle
 
 bitset!(TickitLineCaps: c_int
 {
+  X_TICKIT_LINECAP_NEITHER = 0x00,
   TICKIT_LINECAP_START = 0x01,
   TICKIT_LINECAP_END   = 0x02,
   TICKIT_LINECAP_BOTH  = 0x03

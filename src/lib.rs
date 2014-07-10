@@ -1,14 +1,15 @@
-// versioning: upstream unreleased: 0.0, snapshot on march 1st
-// last number is for changes in this rust binding
-#![crate_id = "tickit#0.0.2014.5.2.1"]
+#![crate_name = "tickit"]
 #![crate_type = "dylib"]
 
 #![feature(macro_rules)]
 #![feature(struct_variant)]
+#![feature(unsafe_destructor)]
 
 extern crate green;
 extern crate libc;
 extern crate rustuv;
+
+extern crate termkey;
 
 use libc::c_char;
 use libc::c_int;
@@ -26,10 +27,17 @@ use c::TickitLineCaps;
 
 mod bitset_macro;
 pub mod c;
+pub mod drv;
+pub mod mock;
 
 fn const_<T>(v: *mut T) -> *const T
 {
     v as *const T
+}
+
+fn const_opt_pen(v: Option<&TickitPen>) -> *const c::TickitPen
+{
+    v.map(|p| const_(p.pen)).unwrap_or(std::ptr::null())
 }
 
 
@@ -53,7 +61,7 @@ pub enum TickitEvent<'a>
     KeyEvent(TickitKeyEvent<'a>),
     MouseEvent(TickitMouseEvent),
     ChangeEvent,
-    UnbindEvent,
+    // UnbindEvent,
     UnknownEvent,
 }
 
@@ -69,7 +77,9 @@ impl TickitPen
     {
         unsafe
         {
-            TickitPen{pen: c::tickit_pen_new()}
+            let cpen = c::tickit_pen_new();
+            assert!(cpen.is_not_null());
+            TickitPen{pen: cpen}
         }
     }
 }
@@ -98,7 +108,7 @@ impl Drop for TickitPen
     {
         unsafe
         {
-            c::tickit_pen_destroy(self.pen)
+            c::tickit_pen_destroy(self.pen);
         }
     }
 }
@@ -148,6 +158,22 @@ impl TickitPen
             c::tickit_pen_set_bool_attr(self.pen, attr, val as c_int);
         }
     }
+    pub fn maybe_get_bool_attr(&self, attr: TickitPenAttr) -> Option<bool>
+    {
+        if self.has_attr(attr)
+        {
+            Some(self.get_bool_attr(attr))
+        }
+        else
+        {
+            None
+        }
+    }
+    pub fn with_bool_attr(mut self, attr: TickitPenAttr, val: bool) -> TickitPen
+    {
+        self.set_bool_attr(attr, val);
+        self
+    }
 
     pub fn get_int_attr(&self, attr: TickitPenAttr) -> int
     {
@@ -163,12 +189,39 @@ impl TickitPen
             c::tickit_pen_set_int_attr(self.pen, attr, val as c_int);
         }
     }
+    pub fn maybe_get_int_attr(&self, attr: TickitPenAttr) -> Option<int>
+    {
+        if self.has_attr(attr)
+        {
+            Some(self.get_int_attr(attr))
+        }
+        else
+        {
+            None
+        }
+    }
+    pub fn with_int_attr(mut self, attr: TickitPenAttr, val: int) -> TickitPen
+    {
+        self.set_int_attr(attr, val);
+        self
+    }
 
     pub fn get_colour_attr(&self, attr: TickitPenAttr) -> int
     {
         unsafe
         {
             c::tickit_pen_get_colour_attr(const_(self.pen), attr) as int
+        }
+    }
+    pub fn maybe_get_colour_attr(&self, attr: TickitPenAttr) -> Option<int>
+    {
+        if self.has_attr(attr)
+        {
+            Some(self.get_colour_attr(attr))
+        }
+        else
+        {
+            None
         }
     }
     pub fn set_colour_attr(&mut self, attr: TickitPenAttr, value: int)
@@ -178,13 +231,18 @@ impl TickitPen
             c::tickit_pen_set_colour_attr(self.pen, attr, value as c_int);
         }
     }
-    pub fn set_colour_attr_desc(&mut self, attr: TickitPenAttr, value: &str) -> int
+    pub fn with_colour_attr(mut self, attr: TickitPenAttr, val: int) -> TickitPen
+    {
+        self.set_colour_attr(attr, val);
+        self
+    }
+    pub fn set_colour_attr_desc(&mut self, attr: TickitPenAttr, value: &str) -> bool
     {
         unsafe
         {
             value.with_c_str(
                 |v| { c::tickit_pen_set_colour_attr_desc(self.pen, attr, v) }
-            ) as int
+            ) != 0
         }
     }
 
@@ -257,7 +315,6 @@ fn event_args<'a>(ty: c::TickitEventType, ar: &'a mut c::TickitEvent) -> TickitE
                     {
                         KeyTextEvent{text: ev_str, mod_: ar.mod_}
                     }
-                    _ => { fail!() }
                 }
             )
         }
@@ -284,17 +341,12 @@ fn event_args<'a>(ty: c::TickitEventType, ar: &'a mut c::TickitEvent) -> TickitE
                         let dir: c::X_Tickit_MouseWheel = unsafe { std::mem::transmute(ar.button) };
                         MouseWheelEvent{dir: dir, line: ar.line as int, col: ar.col as int, mod_: ar.mod_}
                     }
-                    _ => { fail!() }
                 }
             )
         }
         x if x == c::TICKIT_EV_CHANGE =>
         {
             ChangeEvent
-        }
-        x if x == c::TICKIT_EV_UNBIND =>
-        {
-            UnbindEvent
         }
         _ =>
         {
@@ -305,6 +357,10 @@ fn event_args<'a>(ty: c::TickitEventType, ar: &'a mut c::TickitEvent) -> TickitE
 
 extern fn pen_hacky_forever_bind_function(mut pen: *mut c::TickitPen, ev: c::TickitEventType, args: *mut c::TickitEvent, data: *mut c_void)
 {
+    if ev == c::TICKIT_EV_UNBIND
+    {
+        return;
+    }
     unsafe
     {
         let penp = &mut pen;
@@ -312,6 +368,53 @@ extern fn pen_hacky_forever_bind_function(mut pen: *mut c::TickitPen, ev: c::Tic
         let args_ = event_args(ev, &mut *args);
         let cb: fn(&mut TickitPen, &TickitEvent) = std::mem::transmute(data);
         cb(pen_, &args_);
+    }
+}
+
+struct LivelyPenData<'a>
+{
+    pen: *mut TickitPen,
+    cb: |&mut TickitPen, &TickitEvent|: 'a,
+}
+
+#[must_use]
+pub struct LivelyPenEvent<'a>
+{
+    id: c_int,
+    data: Box<LivelyPenData<'a>>,
+}
+
+#[unsafe_destructor]
+impl<'a> Drop for LivelyPenEvent<'a>
+{
+    fn drop(&mut self)
+    {
+        if self.data.pen.is_not_null()
+        {
+            unsafe
+            {
+                c::tickit_pen_unbind_event_id((*self.data.pen).pen, self.id);
+            }
+        }
+    }
+}
+
+extern fn pen_lively_callback(mut pen: *mut c::TickitPen, ev: c::TickitEventType, args: *mut c::TickitEvent, data: *mut c_void)
+{
+    unsafe
+    {
+        let lively: *mut LivelyPenData = std::mem::transmute(data);
+        if ev == c::TICKIT_EV_UNBIND
+        {
+            (*lively).pen = std::ptr::mut_null();
+        }
+        else
+        {
+            let penp = &mut pen;
+            let pen_: &mut TickitPen = std::mem::transmute(penp);
+            let args_ = event_args(ev, &mut *args);
+            ((*lively).cb)(pen_, &args_);
+        }
     }
 }
 
@@ -326,22 +429,40 @@ impl TickitPen
             c::tickit_pen_bind_event(self.pen, ev, fun, data);
         }
     }
-}
 
-impl TickitPen
-{
-    pub fn attrtype(attr: TickitPenAttr) -> TickitPenAttrType
+    pub fn bind_event_lively<'a>(&mut self, ev: c::TickitEventType, cb: |&mut TickitPen, &TickitEvent|: 'a) -> LivelyPenEvent<'a>
     {
+        // why aren't we taking the lifetime of 'self' ?
+        // First, because that would prevent anybody else from using it
+        // Second, because we don't need it - we get an "unregister" event.
         unsafe
         {
-            c::tickit_pen_attrtype(attr)
+            let fun = Some(pen_lively_callback);
+            let mut data = box LivelyPenData::<'a>{pen: self as *mut _, cb: cb};
+            let raw_data: *mut c_void = &mut *data as *mut _ as *mut c_void;
+            let ev = ev | c::TICKIT_EV_UNBIND;
+            let id = c::tickit_pen_bind_event(self.pen, ev, fun, raw_data);
+            LivelyPenEvent{id: id, data: data}
         }
     }
-    pub fn attrname(attr: TickitPenAttr) -> Option<&'static str>
+
+    // pub fn bind_event_split<T>(&mut self, ev: c::TickitEventType, cb: fn(&mut TickitPen, &TickitEvent, T), data: T)
+}
+
+impl c::TickitPenAttr
+{
+    pub fn attrtype(self) -> TickitPenAttrType
     {
         unsafe
         {
-            let cstr = c::tickit_pen_attrname(attr);
+            c::tickit_pen_attrtype(self)
+        }
+    }
+    pub fn attrname_opt(self) -> Option<&'static str>
+    {
+        unsafe
+        {
+            let cstr = c::tickit_pen_attrname(self);
             if cstr.is_not_null()
             {
                 Some(std::str::raw::c_str_to_static_slice(cstr))
@@ -351,6 +472,10 @@ impl TickitPen
                 None
             }
         }
+    }
+    pub fn attrname(self) -> &'static str
+    {
+        self.attrname_opt().unwrap()
     }
     pub fn lookup_attr(name: &str) -> TickitPenAttr
     {
@@ -364,6 +489,7 @@ impl TickitPen
 }
 
 
+#[deriving(PartialEq)]
 pub struct TickitRect
 {
     pub top: int,
@@ -380,7 +506,7 @@ impl TickitRect
     }
     pub fn init_bounded(top: int, left: int, bottom: int, right: int) -> TickitRect
     {
-        TickitRect{top: top, left: left, lines: bottom - top, cols: right -- left}
+        TickitRect{top: top, left: left, lines: bottom - top, cols: right - left}
     }
 }
 
@@ -492,7 +618,8 @@ impl TickitRectSet
         let mut tmp = Vec::<c::TickitRect>::from_fn(n as uint, |_| { unsafe { std::mem::uninitialized() } } );
         unsafe
         {
-            c::tickit_rectset_get_rects(const_(self.set), tmp.as_mut_ptr(), n);
+            let n2 = c::tickit_rectset_get_rects(const_(self.set), tmp.as_mut_ptr(), n);
+            assert!(n == n2);
         }
 
         tmp.iter().map(|&r| { TickitRect::from_c(r) }).collect()
@@ -534,6 +661,8 @@ impl TickitRectSet
 pub struct TickitTerm
 {
     tt: *mut c::TickitTerm,
+    output_hook: *mut c_void, // really LivelyTermOutData<'?>
+    output_box: Option<Box<TermOutputDataWrapper>>
 }
 
 impl TickitTerm
@@ -545,21 +674,29 @@ impl TickitTerm
             let tt = c::tickit_term_new();
             if tt.is_not_null()
             {
-                Ok(TickitTerm{tt: c::tickit_term_new()})
+                Ok(TickitTerm{tt: tt, output_hook: std::ptr::mut_null(), output_box: None})
             }
             else
             {
-                Err(std::os::errno() as c::c_int)
+                Err(std::os::errno() as c_int)
             }
         }
     }
-    pub fn new_for_termtype(name: &str) -> TickitTerm
+    pub fn new_for_termtype(name: &str) -> Result<TickitTerm, c_int>
     {
         unsafe
         {
-            name.with_c_str(|n| {
-                TickitTerm{tt: c::tickit_term_new_for_termtype(n)}
-            })
+            let tt = name.with_c_str(|n| {
+                c::tickit_term_new_for_termtype(n)
+            });
+            if tt.is_not_null()
+            {
+                Ok(TickitTerm{tt: tt, output_hook: std::ptr::mut_null(), output_box: None})
+            }
+            else
+            {
+                Err(std::os::errno() as c_int)
+            }
         }
     }
 }
@@ -571,6 +708,11 @@ impl Drop for TickitTerm
         unsafe
         {
             c::tickit_term_destroy(self.tt);
+            let x = self.output_hook as *mut LivelyTermOutData<'static>;
+            if x.is_not_null()
+            {
+                (*x).tt = std::ptr::mut_null();
+            }
         }
     }
 }
@@ -601,11 +743,11 @@ impl TickitTerm
     }
 }
 
-extern fn term_hacky_forever_output_function(mut term: *mut c::TickitTerm, bytes: *const c_char, len: size_t, data: *mut c_void)
+extern fn term_hacky_forever_output_function(term: *mut c::TickitTerm, bytes: *const c_char, len: size_t, data: *mut c_void)
 {
     unsafe
     {
-        let termp = &mut term;
+        let termp: &mut (_, *mut c_void, *mut c_void) = &mut (term, std::ptr::mut_null(), std::ptr::mut_null());
         let term_: &mut TickitTerm = std::mem::transmute(termp);
         let cb: fn(&mut TickitTerm, &[u8]) = std::mem::transmute(data);
         let bytes: *const u8 = std::mem::transmute(bytes);
@@ -613,15 +755,139 @@ extern fn term_hacky_forever_output_function(mut term: *mut c::TickitTerm, bytes
     }
 }
 
+struct LivelyTermOutData<'a>
+{
+    tt: *mut TickitTerm,
+    cb: |&mut TickitTerm, &[u8]|: 'a,
+}
+
+#[must_use]
+pub struct LivelyTermOutEvent<'a>
+{
+    data: Box<LivelyTermOutData<'a>>,
+}
+
+#[unsafe_destructor]
+impl<'a> Drop for LivelyTermOutEvent<'a>
+{
+    fn drop(&mut self)
+    {
+        if self.data.tt.is_not_null()
+        {
+            unsafe
+            {
+                c::tickit_term_set_output_func((*self.data.tt).tt, None, std::ptr::mut_null());
+                (*self.data.tt).output_hook = std::ptr::mut_null();
+            }
+        }
+    }
+}
+
+extern fn term_out_lively_callback(term: *mut c::TickitTerm, bytes: *const c_char, len: size_t, data: *mut c_void)
+{
+    unsafe
+    {
+        let lively: *mut LivelyTermOutData = std::mem::transmute(data);
+        {
+            let termp: &mut (_, *mut c_void, *mut c_void) = &mut (term, std::ptr::mut_null(), std::ptr::mut_null());
+            let term_: &mut TickitTerm = std::mem::transmute(termp);
+            let bytes: *const u8 = std::mem::transmute(bytes);
+            std::slice::raw::buf_as_slice(bytes, len as uint, |arr| { ((*lively).cb)(term_, arr) });
+        }
+    }
+}
+
+struct TermOutputData<T>
+{
+    cb: fn(&mut TickitTerm, &[u8], &mut T),
+    data: T,
+}
+
+// https://github.com/rust-lang/rust/issues/15513
+/* extern */ fn term_output_callback<T>(term: *mut c::TickitTerm, bytes: *const c_char, len: size_t, data: *mut c_void)
+{
+    unsafe
+    {
+        let termp: &mut (_, *mut c_void, *mut c_void) = &mut (term, std::ptr::mut_null(), std::ptr::mut_null());
+        let term_: &mut TickitTerm = std::mem::transmute(termp);
+        let bytes: *const u8 = std::mem::transmute(bytes);
+        let data: &mut TermOutputData<T> = std::mem::transmute(data);
+        std::slice::raw::buf_as_slice(bytes, len as uint, |arr| { (data.cb)(term_, arr, &mut data.data) });
+    }
+}
+
+struct TermOutputDataWrapper
+{
+    rust_cb: Option<fn(*mut c::TickitTerm, *const c_char, size_t, *mut c_void)>,
+    rust_drop: Option<fn(*mut c_void)>,
+    rust_data: *mut c_void,
+}
+
+impl Drop for TermOutputDataWrapper
+{
+    fn drop(&mut self)
+    {
+        self.rust_drop.unwrap()(self.rust_data);
+    }
+}
+
+extern fn term_output_wrapper(term: *mut c::TickitTerm, bytes: *const c_char, len: size_t, data: *mut c_void)
+{
+    unsafe
+    {
+        let data = data as *mut TermOutputDataWrapper;
+        ((*data).rust_cb.unwrap())(term, bytes, len, (*data).rust_data);
+    }
+}
+
+fn term_output_drop<T>(data: *mut c_void)
+{
+    unsafe
+    {
+        let _: Box<TermOutputData<T>> = std::mem::transmute(data);
+    }
+}
+
 impl TickitTerm
 {
-    pub fn x_set_output_func(&mut self, cb: fn(&mut TickitTerm, bytes: &[u8]))
+    pub fn x_set_output_func_forever(&mut self, cb: fn(&mut TickitTerm, bytes: &[u8]))
     {
         unsafe
         {
             let fun = Some(term_hacky_forever_output_function);
             let data: *mut c_void = std::mem::transmute(cb);
             c::tickit_term_set_output_func(self.tt, fun, data);
+        }
+    }
+
+    pub fn set_output_lively<'a>(&mut self, cb: |&mut TickitTerm, &[u8]|: 'a) -> LivelyTermOutEvent<'a>
+    {
+        // why aren't we taking the lifetime of 'self' ?
+        // First, because that would prevent anybody else from using it
+        // Second, because we don't need it - even though there is no
+        // 'unregister' event, there's only one so we can drop it.
+        unsafe
+        {
+            let fun = Some(term_out_lively_callback);
+            let mut data = box LivelyTermOutData::<'a>{tt: self, cb: cb};
+            let raw_data: *mut c_void = &mut *data as *mut _ as *mut c_void;
+            c::tickit_term_set_output_func(self.tt, fun, raw_data);
+            self.output_hook = raw_data;
+            LivelyTermOutEvent{data: data}
+        }
+    }
+
+    pub fn set_output_func<T>(&mut self, cb: fn(&mut TickitTerm, &[u8], &mut T), data: T)
+    {
+        unsafe
+        {
+            let fun = Some(term_output_callback::<T>);
+            let raw_data: *mut c_void = std::mem::transmute(box TermOutputData::<T>{cb: cb, data: data});
+            let wrap_fun = Some(term_output_wrapper);
+            self.output_box = Some(box TermOutputDataWrapper{rust_cb: fun, rust_drop: Some(term_output_drop::<T>), rust_data: raw_data});
+            let wrap_data: &TermOutputDataWrapper = &**self.output_box.as_ref().unwrap();
+            let wrap_data = wrap_data as *const _ as *mut c_void;
+            c::tickit_term_set_output_func(self.tt, wrap_fun, wrap_data);
         }
     }
 }
@@ -682,11 +948,11 @@ impl TickitTerm
         }
     }
 
-    pub fn input_push_bytes(&mut self, bytes: &str)
+    pub fn input_push_bytes(&mut self, bytes: &[u8])
     {
         unsafe
         {
-            let b: &[c_char] = std::mem::transmute(bytes.as_bytes());
+            let b: &[c_char] = std::mem::transmute(bytes);
             c::tickit_term_input_push_bytes(self.tt, b.as_ptr(), b.len() as size_t);
         }
     }
@@ -697,14 +963,14 @@ impl TickitTerm
             c::tickit_term_input_readable(self.tt);
         }
     }
-    pub fn input_check_timeout(&mut self) -> Option<int>
+    pub fn input_check_timeout(&mut self) -> Option<uint>
     {
         unsafe
         {
             let t = c::tickit_term_input_check_timeout(self.tt);
             if t != -1
             {
-                Some(t as int)
+                Some(t as uint)
             }
             else
             {
@@ -720,14 +986,14 @@ impl TickitTerm
         }
     }
 
-    pub fn get_size(&self) -> (int, int)
+    pub fn get_size(&self) -> (uint, uint)
     {
         unsafe
         {
             let mut lines: c_int = std::mem::uninitialized();
             let mut cols: c_int = std::mem::uninitialized();
             c::tickit_term_get_size(const_(self.tt), &mut lines, &mut cols);
-            (lines as int, cols as int)
+            (lines as uint, cols as uint)
         }
     }
     pub fn set_size(&mut self, lines: int, cols: int)
@@ -746,16 +1012,126 @@ impl TickitTerm
     }
 }
 
-extern fn term_hacky_forever_bind_function(mut term: *mut c::TickitTerm, ev: c::TickitEventType, args: *mut c::TickitEvent, data: *mut c_void)
+extern fn term_hacky_forever_bind_function(term: *mut c::TickitTerm, ev: c::TickitEventType, args: *mut c::TickitEvent, data: *mut c_void)
 {
+    if ev == c::TICKIT_EV_UNBIND
+    {
+        return;
+    }
     unsafe
     {
-        let termp = &mut term;
+        let termp: &mut (_, *mut c_void, *mut c_void) = &mut (term, std::ptr::mut_null(), std::ptr::mut_null());
         let term_: &mut TickitTerm = std::mem::transmute(termp);
         let args_ = event_args(ev, &mut *args);
         let cb: fn(&mut TickitTerm, &TickitEvent) = std::mem::transmute(data);
         cb(term_, &args_);
     }
+}
+
+struct LivelyTermData<'a>
+{
+    term: *mut TickitTerm,
+    cb: |&mut TickitTerm, &TickitEvent|: 'a,
+}
+
+#[must_use]
+pub struct LivelyTermEvent<'a>
+{
+    id: c_int,
+    data: Box<LivelyTermData<'a>>,
+}
+
+#[unsafe_destructor]
+impl<'a> Drop for LivelyTermEvent<'a>
+{
+    fn drop(&mut self)
+    {
+        if self.data.term.is_not_null()
+        {
+            unsafe
+            {
+                c::tickit_term_unbind_event_id((*self.data.term).tt, self.id);
+            }
+        }
+    }
+}
+
+extern fn term_lively_callback(term: *mut c::TickitTerm, ev: c::TickitEventType, args: *mut c::TickitEvent, data: *mut c_void)
+{
+    unsafe
+    {
+        let lively: *mut LivelyTermData = std::mem::transmute(data);
+        if ev == c::TICKIT_EV_UNBIND
+        {
+            (*lively).term = std::ptr::mut_null();
+        }
+        else
+        {
+            let termp: &mut (_, *mut c_void, *mut c_void) = &mut (term, std::ptr::mut_null(), std::ptr::mut_null());
+            let term_: &mut TickitTerm = std::mem::transmute(termp);
+            let args_ = event_args(ev, &mut *args);
+            ((*lively).cb)(term_, &args_);
+        }
+    }
+}
+
+struct SplitTermData<T>
+{
+    cb: fn(&mut TickitTerm, &TickitEvent, &mut T),
+    data: T,
+}
+
+// https://github.com/rust-lang/rust/issues/15513
+/* extern */ fn term_split_callback<T>(term: *mut c::TickitTerm, ev: c::TickitEventType, args: *mut c::TickitEvent, data: *mut c_void)
+-> bool
+{
+    unsafe
+    {
+        if ev == c::TICKIT_EV_UNBIND
+        {
+            let _: Box<SplitTermData<T>> = std::mem::transmute(data);
+            true
+        }
+        else
+        {
+            let termp: &mut (_, *mut c_void, *mut c_void) = &mut (term, std::ptr::mut_null(), std::ptr::mut_null());
+            let term_: &mut TickitTerm = std::mem::transmute(termp);
+            let args_ = event_args(ev, &mut *args);
+            let data: &mut SplitTermData<T> = std::mem::transmute(data);
+            (data.cb)(term_, &args_, &mut data.data);
+            false
+        }
+    }
+}
+
+struct SplitTermDataWrapper
+{
+    rust_cb: Option<fn(*mut c::TickitTerm, c::TickitEventType, *mut c::TickitEvent, *mut c_void)
+                 -> bool>,
+    rust_data: *mut c_void,
+}
+
+extern fn term_split_callback_wrapper(term: *mut c::TickitTerm, ev: c::TickitEventType, args: *mut c::TickitEvent, data: *mut c_void)
+{
+    unsafe
+    {
+        let data = data as *mut SplitTermDataWrapper;
+        let del = ((*data).rust_cb.unwrap())(term, ev, args, (*data).rust_data);
+        if del
+        {
+            let _: Box<SplitTermDataWrapper> = std::mem::transmute(data);
+        }
+    }
+}
+
+// TODO possibly store a pointer to this in the 'data' payload, to avoid
+// the need for a runtime assert!() that the term is the same.
+// Or we could just assume that the user won't be a *complete* idiot.
+pub struct CancellableTermEvent
+{
+    tt: *mut c::TickitTerm,
+    id: c_int,
+    nocopy: std::kinds::marker::NoCopy,
 }
 
 impl TickitTerm
@@ -767,6 +1143,45 @@ impl TickitTerm
             let fun = Some(term_hacky_forever_bind_function);
             let data: *mut c_void = std::mem::transmute(cb);
             c::tickit_term_bind_event(self.tt, ev, fun, data) as int
+        }
+    }
+
+    pub fn bind_event_lively<'a>(&mut self, ev: c::TickitEventType, cb: |&mut TickitTerm, &TickitEvent|: 'a) -> LivelyTermEvent<'a>
+    {
+        // why aren't we taking the lifetime of 'self' ?
+        // First, because that would prevent anybody else from using it
+        // Second, because we don't need it - we get an "unregister" event.
+        unsafe
+        {
+            let fun = Some(term_lively_callback);
+            let mut data = box LivelyTermData::<'a>{term: self as *mut _, cb: cb};
+            let raw_data: *mut c_void = &mut *data as *mut _ as *mut c_void;
+            let ev = ev | c::TICKIT_EV_UNBIND;
+            let id = c::tickit_term_bind_event(self.tt, ev, fun, raw_data);
+            LivelyTermEvent{id: id, data: data}
+        }
+    }
+
+    pub fn bind_event<T>(&mut self, ev: c::TickitEventType, cb: fn(&mut TickitTerm, &TickitEvent, &mut T), data: T) -> CancellableTermEvent
+    {
+        unsafe
+        {
+            let fun = Some(term_split_callback::<T>);
+            let raw_data: *mut c_void = std::mem::transmute(box SplitTermData::<T>{cb: cb, data: data});
+            let ev = ev | c::TICKIT_EV_UNBIND;
+            let wrap_fun = Some(term_split_callback_wrapper);
+            let wrap_data: *mut c_void = std::mem::transmute(box SplitTermDataWrapper{rust_cb: fun, rust_data: raw_data});
+            let id = c::tickit_term_bind_event(self.tt, ev, wrap_fun, wrap_data);
+            CancellableTermEvent{tt: self.tt, id: id, nocopy: std::kinds::marker::NoCopy}
+        }
+    }
+
+    pub fn unbind_event_id(&mut self, can: CancellableTermEvent)
+    {
+        assert!(self.tt == can.tt);
+        unsafe
+        {
+            c::tickit_term_unbind_event_id(can.tt, can.id);
         }
     }
 }
@@ -795,11 +1210,11 @@ impl TickitTerm
             c::tickit_term_move(self.tt, downward as c_int, rightward as c_int);
         }
     }
-    pub fn scrollrect(&mut self, top: int, left: int, lines: int, cols: int, downward: int, rightward: int) -> bool
+    pub fn scrollrect(&mut self, rect: TickitRect, downward: int, rightward: int) -> bool
     {
         unsafe
         {
-            c::tickit_term_scrollrect(self.tt, top as c_int, left as c_int, lines as c_int, cols as c_int, downward as c_int, rightward as c_int) != 0
+            c::tickit_term_scrollrect(self.tt, rect.top as c_int, rect.left as c_int, rect.lines as c_int, rect.cols as c_int, downward as c_int, rightward as c_int) != 0
         }
     }
 
@@ -825,8 +1240,9 @@ impl TickitTerm
             c::tickit_term_clear(self.tt);
         }
     }
-    pub fn erasech(&mut self, count: int, moveend: int)
+    pub fn erasech(&mut self, count: int, moveend: Option<bool>)
     {
+        let moveend = moveend.map(|x| x as c_int).unwrap_or(-1);
         unsafe
         {
             c::tickit_term_erasech(self.tt, count as c_int, moveend as c_int);
@@ -904,27 +1320,36 @@ impl StringPos
 
 impl StringPos
 {
-    pub fn count(str_: &str, pos: &mut StringPos, limit: Option<StringPos>) -> uint
+    // these are public just to let unit tests check failure correctly
+    pub fn x_bcount(str_: &[u8], pos: &mut StringPos, limit: Option<StringPos>) -> uint
     {
         unsafe
         {
-            let s: &[c_char] = std::mem::transmute(str_.as_bytes());
+            let s: &[c_char] = std::mem::transmute(str_);
             let mut cpos = pos.to_c();
             let rv = c::tickit_string_ncount(s.as_ptr(), s.len() as size_t, &mut cpos, match limit { Some(l) => { &l.to_c() as *const _ } None => { std::ptr::null() } });
             *pos = StringPos::from_c(cpos);
             rv as uint
         }
     }
-    pub fn count_more(str_: &str, pos: &mut StringPos, limit: Option<StringPos>) -> uint
+    pub fn x_bcountmore(str_: &[u8], pos: &mut StringPos, limit: Option<StringPos>) -> uint
     {
         unsafe
         {
-            let s: &[c_char] = std::mem::transmute(str_.as_bytes());
+            let s: &[c_char] = std::mem::transmute(str_);
             let mut cpos = pos.to_c();
             let rv = c::tickit_string_ncountmore(s.as_ptr(), s.len() as size_t, &mut cpos, match limit { Some(l) => { &l.to_c() as *const _ } None => { std::ptr::null() } });
             *pos = StringPos::from_c(cpos);
             rv as uint
         }
+    }
+    pub fn count(str_: &str, pos: &mut StringPos, limit: Option<StringPos>) -> uint
+    {
+        StringPos::x_bcount(str_.as_bytes(), pos, limit)
+    }
+    pub fn countmore(str_: &str, pos: &mut StringPos, limit: Option<StringPos>) -> uint
+    {
+        StringPos::x_bcountmore(str_.as_bytes(), pos, limit)
     }
 }
 
@@ -1039,7 +1464,8 @@ impl TickitRenderBuffer
     {
         unsafe
         {
-            TickitRenderBuffer{ rb: c::tickit_renderbuffer_new(lines as c_int, cols as c_int) }
+            let rb = c::tickit_renderbuffer_new(lines as c_int, cols as c_int);
+            TickitRenderBuffer{ rb: rb }
         }
     }
 }
@@ -1181,89 +1607,89 @@ impl TickitRenderBuffer
             c::tickit_renderbuffer_skip_to(self.rb, col as c_int);
         }
     }
-    pub fn text_at(&mut self, line: int, col: int, text: &str, pen: &TickitPen) -> int
+    pub fn text_at(&mut self, line: int, col: int, text: &str, pen: Option<&TickitPen>) -> int
     {
         unsafe
         {
             text.with_c_str(
-                |t| { c::tickit_renderbuffer_text_at(self.rb, line as c_int, col as c_int, t, const_(pen.pen)) as int }
+                |t| { c::tickit_renderbuffer_text_at(self.rb, line as c_int, col as c_int, t, const_opt_pen(pen)) as int }
             )
         }
     }
-    pub fn text(&mut self, text: &str, pen: &TickitPen) -> int
+    pub fn text(&mut self, text: &str, pen: Option<&TickitPen>) -> int
     {
         unsafe
         {
             text.with_c_str(
-                |t| { c::tickit_renderbuffer_text(self.rb, t, const_(pen.pen)) as int }
+                |t| { c::tickit_renderbuffer_text(self.rb, t, const_opt_pen(pen)) as int }
             )
         }
     }
-    pub fn erase_at(&mut self, line: int, col: int, len: int, pen: &TickitPen)
+    pub fn erase_at(&mut self, line: int, col: int, len: int, pen: Option<&TickitPen>)
     {
         unsafe
         {
-            c::tickit_renderbuffer_erase_at(self.rb, line as c_int, col as c_int, len as c_int, const_(pen.pen));
+            c::tickit_renderbuffer_erase_at(self.rb, line as c_int, col as c_int, len as c_int, const_opt_pen(pen));
         }
     }
-    pub fn erase(&mut self, len: int, pen: &TickitPen)
+    pub fn erase(&mut self, len: int, pen: Option<&TickitPen>)
     {
         unsafe
         {
-            c::tickit_renderbuffer_erase(self.rb, len as c_int, const_(pen.pen));
+            c::tickit_renderbuffer_erase(self.rb, len as c_int, const_opt_pen(pen));
         }
     }
-    pub fn erase_to(&mut self, col: int, pen: &TickitPen)
+    pub fn erase_to(&mut self, col: int, pen: Option<&TickitPen>)
     {
         unsafe
         {
-            c::tickit_renderbuffer_erase_to(self.rb, col as c_int, const_(pen.pen));
+            c::tickit_renderbuffer_erase_to(self.rb, col as c_int, const_opt_pen(pen));
         }
     }
-    pub fn eraserect(&mut self, rect: &TickitRect, pen: &TickitPen)
+    pub fn eraserect(&mut self, rect: &TickitRect, pen: Option<&TickitPen>)
     {
         unsafe
         {
-            c::tickit_renderbuffer_eraserect(self.rb, &rect.to_c(), const_(pen.pen));
+            c::tickit_renderbuffer_eraserect(self.rb, &rect.to_c(), const_opt_pen(pen));
         }
     }
-    pub fn clear(&mut self, pen: &TickitPen)
+    pub fn clear(&mut self, pen: Option<&TickitPen>)
     {
         unsafe
         {
-            c::tickit_renderbuffer_clear(self.rb, const_(pen.pen));
+            c::tickit_renderbuffer_clear(self.rb, const_opt_pen(pen));
         }
     }
-    pub fn char_at(&mut self, line: int, col: int, codepoint: char, pen: &TickitPen)
+    pub fn char_at(&mut self, line: int, col: int, codepoint: char, pen: Option<&TickitPen>)
     {
         unsafe
         {
-            c::tickit_renderbuffer_char_at(self.rb, line as c_int, col as c_int, codepoint as c_long, const_(pen.pen));
+            c::tickit_renderbuffer_char_at(self.rb, line as c_int, col as c_int, codepoint as c_long, const_opt_pen(pen));
         }
     }
-    pub fn char(&mut self, codepoint: char, pen: &TickitPen)
+    pub fn char(&mut self, codepoint: char, pen: Option<&TickitPen>)
     {
         unsafe
         {
-            c::tickit_renderbuffer_char(self.rb, codepoint as c_long, const_(pen.pen));
+            c::tickit_renderbuffer_char(self.rb, codepoint as c_long, const_opt_pen(pen));
         }
     }
 }
 
 impl TickitRenderBuffer
 {
-    pub fn hline_at(&mut self, line: int, startcol: int, endcol: int, style: TickitLineStyle, pen: &TickitPen, caps: TickitLineCaps)
+    pub fn hline_at(&mut self, line: int, startcol: int, endcol: int, style: TickitLineStyle, pen: Option<&TickitPen>, caps: TickitLineCaps)
     {
         unsafe
         {
-            c::tickit_renderbuffer_hline_at(self.rb, line as c_int, startcol as c_int, endcol as c_int, style, const_(pen.pen), caps);
+            c::tickit_renderbuffer_hline_at(self.rb, line as c_int, startcol as c_int, endcol as c_int, style, const_opt_pen(pen), caps);
         }
     }
-    pub fn vline_at(&mut self, startline: int, endline: int, col: int, style: TickitLineStyle, pen: &TickitPen, caps: TickitLineCaps)
+    pub fn vline_at(&mut self, startline: int, endline: int, col: int, style: TickitLineStyle, pen: Option<&TickitPen>, caps: TickitLineCaps)
     {
         unsafe
         {
-            c::tickit_renderbuffer_vline_at(self.rb, startline as c_int, endline as c_int, col as c_int, style, const_(pen.pen), caps);
+            c::tickit_renderbuffer_vline_at(self.rb, startline as c_int, endline as c_int, col as c_int, style, const_opt_pen(pen), caps);
         }
     }
 
@@ -1276,6 +1702,7 @@ impl TickitRenderBuffer
     }
 }
 
+#[experimental]
 pub struct TickitRenderBufferLineMask
 {
     pub north: TickitLineStyle,
@@ -1300,6 +1727,7 @@ impl TickitRenderBufferLineMask
     }
 }
 
+#[experimental]
 impl TickitRenderBuffer
 {
     pub fn get_cell_active(&mut self, line: int, col: int) -> bool
@@ -1345,12 +1773,14 @@ impl TickitRenderBuffer
     }
 }
 
+#[experimental]
 pub enum TickitRenderBufferSpanInfo
 {
     SkipSpan{pub n_columns: int},
     TextSpan{pub pen: TickitPen, pub text: String},
 }
 
+#[experimental]
 impl TickitRenderBuffer
 {
 // returns the text length or -1 on error
