@@ -1,4 +1,2 @@
-/demo-*
-/libtickit-*
-/run-tests
-*.stamp
+src/generated_link.rs
+/target/

@@ -1,0 +1,16 @@
+[project]
+name = "tickit"
+version = "0.0.0"
+authors = ["Ben Longbons <b.r.longbons@gmail.com>"]
+build = [
+    "./install_tickit.sh",
+    "./generate_link.sh"
+]
+
+[[lib]]
+name = "tickit"
+crate_type = ["dylib"]
+test = false
+
+[dependencies.termkey]
+git = "git://github.com/o11c/termkey-rs"

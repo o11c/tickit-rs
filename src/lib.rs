@@ -1,6 +1,4 @@
-#![crate_name = "tickit"]
-#![crate_type = "dylib"]
-
+#![feature(link_args)]
 #![feature(macro_rules)]
 #![feature(struct_variant)]
 #![feature(unsafe_destructor)]
@@ -28,6 +26,7 @@ use c::TickitLineCaps;
 mod bitset_macro;
 pub mod c;
 pub mod drv;
+mod generated_link;
 pub mod mock;
 
 fn const_<T>(v: *mut T) -> *const T

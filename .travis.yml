@@ -19,5 +19,5 @@ before_script:
   - sudo make -j2 -C tickit-c install
   - sudo ldconfig
 script:
-  - make -j2 all
-  - make -j2 test
+  - cargo build -j 2
+  - cargo test -j 2
