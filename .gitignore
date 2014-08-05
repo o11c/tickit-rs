@@ -1,2 +1,5 @@
 src/generated_link.rs
 /target/
+/unibilium/
+/termkey-c/
+/tickit-c/
