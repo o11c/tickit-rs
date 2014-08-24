@@ -2,6 +2,7 @@ use c::{TickitTerm,TickitRect,TickitPen,TickitTermCtl};
 use termkey::c::{TermKey,TermKeyKey};
 use libc::{c_char,c_int,c_void,size_t};
 
+#[repr(C)]
 pub struct TickitTermDriverVTable
 {
   pub attach: Option<extern fn(ttd: *mut TickitTermDriver, tt: *mut TickitTerm)>,

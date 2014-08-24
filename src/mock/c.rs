@@ -3,6 +3,7 @@
 use c::{TickitTerm,TickitRect,TickitPen};
 use libc::{c_char,c_int,size_t};
 
+#[repr(C)]
 pub enum X_TickitMockTermLogType
 {
 
