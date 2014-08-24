@@ -7,10 +7,14 @@ build = [
     "./generate_link.sh"
 ]
 
-[[lib]]
+[lib]
 name = "tickit"
 crate_type = ["dylib"]
 test = false
+
+[[test]]
+name = "integration"
+path = "src/test.rs"
 
 [dependencies.termkey]
 git = "git://github.com/o11c/termkey-rs"

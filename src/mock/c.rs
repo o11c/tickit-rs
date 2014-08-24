@@ -14,6 +14,7 @@ pub enum X_TickitMockTermLogType
   LOG_SETPEN,
 }
 
+#[repr(C)]
 pub struct TickitMockTermLogEntry
 {
   pub type_: X_TickitMockTermLogType,

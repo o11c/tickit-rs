@@ -59,7 +59,7 @@ pub struct TickitEvent
   pub mod_: X_Tickit_Mod,           // KEY, MOUSE
 }
 
-pub struct TickitPen;
+pub enum TickitPen {}
 
 #[repr(C)] #[deriving(PartialEq, Show)]
 pub enum TickitPenAttr
@@ -181,7 +181,7 @@ pub fn tickit_rect_subtract(ret: *mut [TickitRect, ..4], orig: *const TickitRect
 }
 
 
-pub struct TickitRectSet;
+pub enum TickitRectSet {}
 
 extern
 {
@@ -201,7 +201,7 @@ pub fn tickit_rectset_contains(trs: *const TickitRectSet, rect: *const TickitRec
 }
 
 
-pub struct TickitTerm;
+pub enum TickitTerm {}
 pub type TickitTermOutputFunc = Option<extern fn(tt: *mut TickitTerm, bytes: *const c_char, len: size_t, user: *mut c_void)>;
 
 extern
@@ -429,7 +429,7 @@ pub fn tickit_string_col2byte(str_: *const c_char, col: c_int) -> size_t;
 }
 
 
-pub struct TickitRenderBuffer;
+pub enum TickitRenderBuffer {}
 
 extern
 {

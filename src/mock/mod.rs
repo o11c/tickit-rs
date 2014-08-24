@@ -1,6 +1,7 @@
 #![experimental]
 
 use std;
+use collections;
 
 use libc::{c_char,c_int};
 
@@ -119,7 +120,7 @@ impl MockTerm
             let mut buf: Vec<u8> = Vec::from_fn(n as uint, |_| std::mem::uninitialized());
             let ptr: *mut c_char = std::mem::transmute(buf.as_mut_ptr());
             c::tickit_mockterm_get_display_text(self.mt(), ptr, n, line, col, width);
-            std::str::raw::from_utf8_owned(buf)
+            collections::string::raw::from_utf8(buf)
         }
     }
     pub fn get_display_pen(&mut self, line: int, col: int) -> TickitPen

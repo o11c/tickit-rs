@@ -3,6 +3,7 @@
 #![feature(struct_variant)]
 #![feature(unsafe_destructor)]
 
+extern crate collections;
 extern crate green;
 extern crate libc;
 extern crate rustuv;
@@ -1745,7 +1746,7 @@ impl TickitRenderBuffer
             {
                 let buf: Vec<u8> = Vec::from_fn(n as uint, |_| { std::mem::uninitialized() });
                 c::tickit_renderbuffer_get_cell_text(self.rb, line as c_int, col as c_int, buf.as_ptr() as *mut c_char, n);
-                std::str::raw::from_utf8_owned(buf)
+                collections::string::raw::from_utf8(buf)
             }
             else
             {
@@ -1808,7 +1809,7 @@ impl TickitRenderBuffer
                 let goodlen = span_info.len;
                 let buf: Vec<u8> = Vec::from_fn(goodlen as uint, |_| { std::mem::uninitialized() });
                 c::tickit_renderbuffer_get_span(self.rb, line as c_int, startcol as c_int, &mut span_info, buf.as_ptr() as *mut c_char, goodlen);
-                TextSpan{pen: TickitPen{pen: c::tickit_pen_clone(const_(span_info.pen))}, text: std::str::raw::from_utf8_owned(buf)}
+                TextSpan{pen: TickitPen{pen: c::tickit_pen_clone(const_(span_info.pen))}, text: collections::string::raw::from_utf8(buf)}
             }
         }
     }

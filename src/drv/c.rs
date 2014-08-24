@@ -22,6 +22,7 @@ pub struct TickitTermDriverVTable
   pub gotkey: Option<extern fn(ttd: *mut TickitTermDriver, tk: *mut TermKey, key: *const TermKeyKey) -> c_int>,
 }
 
+#[repr(C)]
 pub struct TickitTermDriver
 {
   pub tt: *mut TickitTerm,

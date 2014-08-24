@@ -545,67 +545,67 @@ fn test_03rect()
 
     let rects = rect1.add(&rect_init_strp("10,10..20,20"));
     tap.is_int(rects.len(), 1, "rect_add same");
-    tap.is_rect(*rects.get(0), "10,10..20,20", "rects[0] for rect_add same");
+    tap.is_rect(rects[0], "10,10..20,20", "rects[0] for rect_add same");
 
     let rects = rect1.add(&rect_init_strp("5,10..10,20"));
     tap.is_int(rects.len(), 1, "rect_add left");
-    tap.is_rect(*rects.get(0), "5,10..20,20", "rects[0] for rect_add left");
+    tap.is_rect(rects[0], "5,10..20,20", "rects[0] for rect_add left");
 
     let rects = rect1.add(&rect_init_strp("20,10..25,20"));
     tap.is_int(rects.len(), 1, "rect_add right");
-    tap.is_rect(*rects.get(0), "10,10..25,20", "rects[0] for rect_add right");
+    tap.is_rect(rects[0], "10,10..25,20", "rects[0] for rect_add right");
 
     let rects = rect1.add(&rect_init_strp("10,5..20,10"));
     tap.is_int(rects.len(), 1, "rect_add top");
-    tap.is_rect(*rects.get(0), "10,5..20,20", "rects[0] for rect_add top");
+    tap.is_rect(rects[0], "10,5..20,20", "rects[0] for rect_add top");
 
     let rects = rect1.add(&rect_init_strp("10,20..20,25"));
     tap.is_int(rects.len(), 1, "rect_add bottom");
-    tap.is_rect(*rects.get(0), "10,10..20,25", "rects[0] for rect_add bottom");
+    tap.is_rect(rects[0], "10,10..20,25", "rects[0] for rect_add bottom");
 
     let rects = rect1.add(&rect_init_strp("12,5..18,10"));
     tap.is_int(rects.len(), 2, "rect_add T above");
-    tap.is_rect(*rects.get(0), "12,5..18,10", "rects[0] for rect_add T above");
-    tap.is_rect(*rects.get(1), "10,10..20,20", "rects[1] for rect_add T above");
+    tap.is_rect(rects[0], "12,5..18,10", "rects[0] for rect_add T above");
+    tap.is_rect(rects[1], "10,10..20,20", "rects[1] for rect_add T above");
 
     let rects = rect1.add(&rect_init_strp("12,20..18,30"));
     tap.is_int(rects.len(), 2, "rect_add T below");
-    tap.is_rect(*rects.get(0), "10,10..20,20", "rects[0] for rect_add T below");
-    tap.is_rect(*rects.get(1), "12,20..18,30", "rects[1] for rect_add T below");
+    tap.is_rect(rects[0], "10,10..20,20", "rects[0] for rect_add T below");
+    tap.is_rect(rects[1], "12,20..18,30", "rects[1] for rect_add T below");
 
     let rects = rect1.add(&rect_init_strp("5,12..10,18"));
     tap.is_int(rects.len(), 3, "rect_add T left");
-    tap.is_rect(*rects.get(0), "10,10..20,12", "rects[0] for rect_add T left");
-    tap.is_rect(*rects.get(1), "5,12..20,18", "rects[1] for rect_add T left");
-    tap.is_rect(*rects.get(2), "10,18..20,20", "rects[2] for rect_add T left");
+    tap.is_rect(rects[0], "10,10..20,12", "rects[0] for rect_add T left");
+    tap.is_rect(rects[1], "5,12..20,18", "rects[1] for rect_add T left");
+    tap.is_rect(rects[2], "10,18..20,20", "rects[2] for rect_add T left");
 
     let rects = rect1.add(&rect_init_strp("20,12..25,18"));
     tap.is_int(rects.len(), 3, "rect_add T right");
-    tap.is_rect(*rects.get(0), "10,10..20,12", "rects[0] for rect_add T right");
-    tap.is_rect(*rects.get(1), "10,12..25,18", "rects[1] for rect_add T right");
-    tap.is_rect(*rects.get(2), "10,18..20,20", "rects[2] for rect_add T right");
+    tap.is_rect(rects[0], "10,10..20,12", "rects[0] for rect_add T right");
+    tap.is_rect(rects[1], "10,12..25,18", "rects[1] for rect_add T right");
+    tap.is_rect(rects[2], "10,18..20,20", "rects[2] for rect_add T right");
 
     let rects = rect1.add(&rect_init_strp("15,15..25,25"));
     tap.is_int(rects.len(), 3, "rect_add diagonal");
-    tap.is_rect(*rects.get(0), "10,10..20,15", "rects[0] for rect_add diagonal");
-    tap.is_rect(*rects.get(1), "10,15..25,20", "rects[1] for rect_add diagonal");
-    tap.is_rect(*rects.get(2), "15,20..25,25", "rects[2] for rect_add diagonal");
+    tap.is_rect(rects[0], "10,10..20,15", "rects[0] for rect_add diagonal");
+    tap.is_rect(rects[1], "10,15..25,20", "rects[1] for rect_add diagonal");
+    tap.is_rect(rects[2], "15,20..25,25", "rects[2] for rect_add diagonal");
 
     let rects = rect1.add(&rect_init_strp("12,8..18,22"));
     tap.is_int(rects.len(), 3, "rect_add cross");
-    tap.is_rect(*rects.get(0), "12,8..18,10", "rects[0] for rect_add cross");
-    tap.is_rect(*rects.get(1), "10,10..20,20", "rects[1] for rect_add cross");
-    tap.is_rect(*rects.get(2), "12,20..18,22", "rects[2] for rect_add cross");
+    tap.is_rect(rects[0], "12,8..18,10", "rects[0] for rect_add cross");
+    tap.is_rect(rects[1], "10,10..20,20", "rects[1] for rect_add cross");
+    tap.is_rect(rects[2], "12,20..18,22", "rects[2] for rect_add cross");
 
     let rects = rect1.add(&rect_init_strp("10,30..20,40"));
     tap.is_int(rects.len(), 2, "rect_add non-overlap horizontal");
-    tap.is_rect(*rects.get(0), "10,10..20,20", "rects[0] for rect_add non-overlap horizontal");
-    tap.is_rect(*rects.get(1), "10,30..20,40", "rects[1] for rect_add non-overlap horizontal");
+    tap.is_rect(rects[0], "10,10..20,20", "rects[0] for rect_add non-overlap horizontal");
+    tap.is_rect(rects[1], "10,30..20,40", "rects[1] for rect_add non-overlap horizontal");
 
     let rects = rect1.add(&rect_init_strp("30,10..40,20"));
     tap.is_int(rects.len(), 2, "rect_add non-overlap vertical");
-    tap.is_rect(*rects.get(0), "10,10..20,20", "rects[0] for rect_add non-overlap vertical");
-    tap.is_rect(*rects.get(1), "30,10..40,20", "rects[1] for rect_add non-overlap vertical");
+    tap.is_rect(rects[0], "10,10..20,20", "rects[0] for rect_add non-overlap vertical");
+    tap.is_rect(rects[1], "30,10..40,20", "rects[1] for rect_add non-overlap vertical");
 
     // Rectangle subtraction
 
@@ -614,60 +614,60 @@ fn test_03rect()
 
     let rects = rect1.subtract(&rect_init_strp("5,10..15,20"));
     tap.is_int(rects.len(), 1, "rect_subtract truncate left");
-    tap.is_rect(*rects.get(0), "15,10..20,20", "rects[0] for rect_subtract truncate left");
+    tap.is_rect(rects[0], "15,10..20,20", "rects[0] for rect_subtract truncate left");
 
     let rects = rect1.subtract(&rect_init_strp("15,10..25,20"));
     tap.is_int(rects.len(), 1, "rect_subtract truncate right");
-    tap.is_rect(*rects.get(0), "10,10..15,20", "rects[0] for rect_subtract truncate right");
+    tap.is_rect(rects[0], "10,10..15,20", "rects[0] for rect_subtract truncate right");
 
     let rects = rect1.subtract(&rect_init_strp("10,5..20,15"));
     tap.is_int(rects.len(), 1, "rect_subtract truncate top");
-    tap.is_rect(*rects.get(0), "10,15..20,20", "rects[0] for rect_subtract truncate top");
+    tap.is_rect(rects[0], "10,15..20,20", "rects[0] for rect_subtract truncate top");
 
     let rects = rect1.subtract(&rect_init_strp("10,15..20,25"));
     tap.is_int(rects.len(), 1, "rect_subtract truncate bottom");
-    tap.is_rect(*rects.get(0), "10,10..20,15", "rects[0] for rect_subtract truncate bottom");
+    tap.is_rect(rects[0], "10,10..20,15", "rects[0] for rect_subtract truncate bottom");
 
     let rects = rect1.subtract(&rect_init_strp("5,12..25,18"));
     tap.is_int(rects.len(), 2, "rect_subtract slice horizontal");
-    tap.is_rect(*rects.get(0), "10,10..20,12", "rects[0] for rect_subtract slice horizontal");
-    tap.is_rect(*rects.get(1), "10,18..20,20", "rects[1] for rect_subtract slice horizontal");
+    tap.is_rect(rects[0], "10,10..20,12", "rects[0] for rect_subtract slice horizontal");
+    tap.is_rect(rects[1], "10,18..20,20", "rects[1] for rect_subtract slice horizontal");
 
     let rects = rect1.subtract(&rect_init_strp("12,5..18,25"));
     tap.is_int(rects.len(), 2, "rect_subtract slice vertical");
-    tap.is_rect(*rects.get(0), "10,10..12,20", "rects[0] for rect_subtract slice vertical");
-    tap.is_rect(*rects.get(1), "18,10..20,20", "rects[1] for rect_subtract slice vertical");
+    tap.is_rect(rects[0], "10,10..12,20", "rects[0] for rect_subtract slice vertical");
+    tap.is_rect(rects[1], "18,10..20,20", "rects[1] for rect_subtract slice vertical");
 
     let rects = rect1.subtract(&rect_init_strp("5,12..15,18"));
     tap.is_int(rects.len(), 3, "rect_subtract U left");
-    tap.is_rect(*rects.get(0), "10,10..20,12", "rects[0] for rect_subtract U left");
-    tap.is_rect(*rects.get(1), "15,12..20,18", "rects[1] for rect_subtract U left");
-    tap.is_rect(*rects.get(2), "10,18..20,20", "rects[2] for rect_subtract U left");
+    tap.is_rect(rects[0], "10,10..20,12", "rects[0] for rect_subtract U left");
+    tap.is_rect(rects[1], "15,12..20,18", "rects[1] for rect_subtract U left");
+    tap.is_rect(rects[2], "10,18..20,20", "rects[2] for rect_subtract U left");
 
     let rects = rect1.subtract(&rect_init_strp("15,12..25,18"));
     tap.is_int(rects.len(), 3, "rect_subtract U right");
-    tap.is_rect(*rects.get(0), "10,10..20,12", "rects[0] for rect_subtract U right");
-    tap.is_rect(*rects.get(1), "10,12..15,18", "rects[1] for rect_subtract U right");
-    tap.is_rect(*rects.get(2), "10,18..20,20", "rects[2] for rect_subtract U right");
+    tap.is_rect(rects[0], "10,10..20,12", "rects[0] for rect_subtract U right");
+    tap.is_rect(rects[1], "10,12..15,18", "rects[1] for rect_subtract U right");
+    tap.is_rect(rects[2], "10,18..20,20", "rects[2] for rect_subtract U right");
 
     let rects = rect1.subtract(&rect_init_strp("12,5..18,15"));
     tap.is_int(rects.len(), 3, "rect_subtract U top");
-    tap.is_rect(*rects.get(0), "10,10..12,15", "rects[0] for rect_subtract U top");
-    tap.is_rect(*rects.get(1), "18,10..20,15", "rects[1] for rect_subtract U top");
-    tap.is_rect(*rects.get(2), "10,15..20,20", "rects[2] for rect_subtract U top");
+    tap.is_rect(rects[0], "10,10..12,15", "rects[0] for rect_subtract U top");
+    tap.is_rect(rects[1], "18,10..20,15", "rects[1] for rect_subtract U top");
+    tap.is_rect(rects[2], "10,15..20,20", "rects[2] for rect_subtract U top");
 
     let rects = rect1.subtract(&rect_init_strp("12,15..18,25"));
     tap.is_int(rects.len(), 3, "rect_subtract U bottom");
-    tap.is_rect(*rects.get(0), "10,10..20,15", "rects[0] for rect_subtract U bottom");
-    tap.is_rect(*rects.get(1), "10,15..12,20", "rects[1] for rect_subtract U bottom");
-    tap.is_rect(*rects.get(2), "18,15..20,20", "rects[2] for rect_subtract U bottom");
+    tap.is_rect(rects[0], "10,10..20,15", "rects[0] for rect_subtract U bottom");
+    tap.is_rect(rects[1], "10,15..12,20", "rects[1] for rect_subtract U bottom");
+    tap.is_rect(rects[2], "18,15..20,20", "rects[2] for rect_subtract U bottom");
 
     let rects = rect1.subtract(&rect_init_strp("12,12..18,18"));
     tap.is_int(rects.len(), 4, "rect_subtract hole");
-    tap.is_rect(*rects.get(0), "10,10..20,12", "rects[0] for rect_subtract hole");
-    tap.is_rect(*rects.get(1), "10,12..12,18", "rects[1] for rect_subtract hole");
-    tap.is_rect(*rects.get(2), "18,12..20,18", "rects[2] for rect_subtract hole");
-    tap.is_rect(*rects.get(3), "10,18..20,20", "rects[3] for rect_subtract hole");
+    tap.is_rect(rects[0], "10,10..20,12", "rects[0] for rect_subtract hole");
+    tap.is_rect(rects[1], "10,12..12,18", "rects[1] for rect_subtract hole");
+    tap.is_rect(rects[2], "18,12..20,18", "rects[2] for rect_subtract hole");
+    tap.is_rect(rects[3], "10,18..20,20", "rects[3] for rect_subtract hole");
 }
 
 fn rects_init_strp(str_: &str) -> Vec<tickit::TickitRect>
@@ -702,14 +702,14 @@ fn test_04rectset()
 
         let rects = trs.get_rects();
         tap.is_int(rects.len(), 1, "tickit_rectset_get_rects after tickit_rectset_add");
-        tap.is_rect(*rects.get(0), "10,10+20,5", "rects[0] after tickit_rectset_add");
+        tap.is_rect(rects[0], "10,10+20,5", "rects[0] after tickit_rectset_add");
 
         trs.add(&rect_init_strp("10,20+20,2"));
 
         let rects = trs.get_rects();
         tap.is_int(rects.len(), 2, "tickit_rectset_get_rects after second tickit_rectset_add");
-        tap.is_rect(*rects.get(0), "10,10+20,5", "rects[0] after second tickit_rectset_add");
-        tap.is_rect(*rects.get(1), "10,20+20,2", "rects[1] after second tickit_rectset_add");
+        tap.is_rect(rects[0], "10,10+20,5", "rects[0] after second tickit_rectset_add");
+        tap.is_rect(rects[1], "10,20+20,2", "rects[1] after second tickit_rectset_add");
 
         trs.clear();
 
@@ -859,7 +859,7 @@ fn test_04rectset()
 
             let inputs = rects_init_strp(input);
 
-            trs.add(inputs.get(0));
+            trs.add(&inputs[0]);
 
             for i in inputs.iter().skip(1)
             {
@@ -927,12 +927,12 @@ fn fd_readb(fd: libc::c_int) -> Vec<u8>
         fail!("read() failed with errno #{}", std::os::errno())
     }
 
-    buf.slice_to(rv as uint).to_owned()
+    buf.slice_to(rv as uint).to_vec()
 }
 
 fn fd_reads(fd: libc::c_int) -> String
 {
-    std::str::from_utf8_owned(fd_readb(fd)).unwrap()
+    String::from_utf8(fd_readb(fd)).unwrap()
 }
 
 #[test]
@@ -1574,6 +1574,7 @@ fn test_14term_resize()
 fn test_15term_input()
 {
     use std::sync::Mutex;
+    use std::time::duration::Duration;
 
     let mut tap = taplib::Tap::new();
 
@@ -1759,7 +1760,7 @@ fn test_15term_input()
     tap.ok(timeout_msec.is_some() && timeout_msec.unwrap() > 0, "term has timeout after Escape");
 
     /* Add an extra milisecond timing grace */
-    std::io::timer::sleep(timeout_msec.unwrap() as u64 + 1);
+    std::io::timer::sleep(Duration::milliseconds(timeout_msec.unwrap() as i32 + 1));
 
     tt.input_check_timeout();
 
@@ -1789,6 +1790,7 @@ fn fd_write(fd: libc::c_int, buf: &[u8])
 fn test_16term_read()
 {
     use std::sync::Mutex;
+    use std::time::duration::Duration;
 
     let mut tap = taplib::Tap::new();
 
@@ -1857,7 +1859,7 @@ fn test_16term_read()
     tap.ok(timeout_msec.is_some() && timeout_msec.unwrap() > 0, "term has timeout after Escape");
 
     /* Add an extra milisecond timing grace */
-    std::io::timer::sleep(timeout_msec.unwrap() as u64 + 1);
+    std::io::timer::sleep(Duration::milliseconds(timeout_msec.unwrap() as i32 + 1));
 
     tt.input_check_timeout();
 
