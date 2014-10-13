@@ -1,6 +1,8 @@
 extern crate libc;
 extern crate native;
 
+extern crate signals;
+
 extern crate tickit;
 
 #[start]
@@ -116,8 +118,6 @@ fn event(tt: &mut tickit::TickitTerm, ev: &tickit::TickitEvent)
 
 fn main()
 {
-    let hack = tickit::signal_hacks::RemoteGreenSignalListener::new();
-
     let mut tt = match tickit::TickitTerm::new()
     {
         Ok(o) => { o }
@@ -137,7 +137,10 @@ fn main()
 
     render_modes(&mut tt);
 
-    while hack.rx.try_recv().is_err()
+    let sig = signals::Signals::new().unwrap();
+    sig.subscribe(signals::Interrupt);
+
+    while sig.receiver().try_recv().is_err()
     {
         tt.input_wait(None);
     }

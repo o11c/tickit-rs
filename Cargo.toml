@@ -18,3 +18,6 @@ path = "src/test.rs"
 
 [dependencies.termkey]
 git = "git://github.com/o11c/termkey-rs"
+
+[dependencies.signals]
+git = "git://github.com/mahkoh/signals.rs"

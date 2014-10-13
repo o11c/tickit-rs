@@ -16,7 +16,7 @@ pub struct TickitTermDriverVTable
   pub scrollrect: Option<extern fn(ttd: *mut TickitTermDriver, rect: *const TickitRect, downward: c_int, rightward: c_int) -> c_int>,
   pub erasech: Option<extern fn(ttd: *mut TickitTermDriver, count: c_int, moveend: c_int)>,
   pub clear: Option<extern fn(ttd: *mut TickitTermDriver)>,
-  pub chpen: Option<extern fn(ttd: *mut TickitTermDriver, delta: *const TickitPen, final: *const TickitPen)>,
+  pub chpen: Option<extern fn(ttd: *mut TickitTermDriver, delta: *const TickitPen, final_: *const TickitPen)>,
   pub getctl_int: Option<extern fn(ttd: *mut TickitTermDriver, ctl: TickitTermCtl, value: *mut c_int) -> c_int>,
   pub setctl_int: Option<extern fn(ttd: *mut TickitTermDriver, ctl: TickitTermCtl, value: c_int) -> c_int>,
   pub setctl_str: Option<extern fn(ttd: *mut TickitTermDriver, ctl: TickitTermCtl, value: *const c_char) -> c_int>,

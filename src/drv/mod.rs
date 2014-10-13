@@ -54,18 +54,19 @@ pub trait TickitTermDriverImpl
     fn scrollrect(&mut self, cdr: CDriverRef, rect: &TickitRect, downward: int, rightward: int) -> bool;
     fn erasech(&mut self, cdr: CDriverRef, count: int, moveend: Option<bool>);
     fn clear(&mut self, cdr: CDriverRef);
-    fn chpen(&mut self, cdr: CDriverRef, delta: &TickitPen, final: &TickitPen);
+    fn chpen(&mut self, cdr: CDriverRef, delta: &TickitPen, final_: &TickitPen);
     fn getctl_int(&mut self, cdr: CDriverRef, ctl: TickitTermCtl) -> Option<int>;
     fn setctl_int(&mut self, cdr: CDriverRef, ctl: TickitTermCtl, value: int) -> bool;
     fn setctl_str(&mut self, cdr: CDriverRef, ctl: TickitTermCtl, value: &str) -> bool;
     fn gotkey(&mut self, cdr: CDriverRef, tk: &mut TermKey, key: &TermKeyEvent) -> bool { false }
 }
 
+// TODO add lifetimes
 struct RustTermDriver
 {
     #[allow(dead_code)]
     driver: c::TickitTermDriver,
-    vtable: Box<TickitTermDriverImpl>,
+    vtable: Box<TickitTermDriverImpl+'static>,
 }
 
 impl ::TickitTerm
@@ -75,12 +76,12 @@ impl ::TickitTerm
         unsafe
         {
             let vtable_impl = box driver_impl;
-            let c_driver = c::TickitTermDriver{tt: std::ptr::mut_null(), vtable: &rust_vtable};
+            let c_driver = c::TickitTermDriver{tt: std::ptr::null_mut(), vtable: &RUST_VTABLE};
             let driver = box RustTermDriver{driver: c_driver, vtable: vtable_impl};
             let raw_driver: *mut c::TickitTermDriver = std::mem::transmute(driver);
             let tt = c::tickit_term_new_for_driver(raw_driver);
             assert!(tt.is_not_null());
-            TickitTerm{tt: tt, output_hook: std::ptr::mut_null(), output_box: None}
+            TickitTerm{tt: tt, output_hook: std::ptr::null_mut(), output_box: None}
         }
     }
 }
@@ -90,7 +91,7 @@ extern fn rust_vtable_attach(ttd: *mut c::TickitTermDriver, tt: *mut super::c::T
     unsafe
     {
         let ttd: *mut RustTermDriver = std::mem::transmute(ttd);
-        let termp: &mut (_, *mut c_void, *mut c_void) = &mut (tt, std::ptr::mut_null(), std::ptr::mut_null());
+        let termp: &mut (_, *mut c_void, *mut c_void) = &mut (tt, std::ptr::null_mut(), std::ptr::null_mut());
         let tt: &mut ::TickitTerm = std::mem::transmute(termp);
         (*ttd).vtable.attach(CDriverRef{driver: &mut (*ttd).driver}, tt);
     }
@@ -193,14 +194,14 @@ extern fn rust_vtable_clear(ttd: *mut c::TickitTermDriver)
     }
 }
 
-extern fn rust_vtable_chpen(ttd: *mut c::TickitTermDriver, mut delta: *const super::c::TickitPen, mut final: *const super::c::TickitPen)
+extern fn rust_vtable_chpen(ttd: *mut c::TickitTermDriver, mut delta: *const super::c::TickitPen, mut final_: *const super::c::TickitPen)
 {
     unsafe
     {
         let ttd: *mut RustTermDriver = std::mem::transmute(ttd);
         let delta: &mut TickitPen = std::mem::transmute(&mut delta);
-        let final: &mut TickitPen = std::mem::transmute(&mut final);
-        (*ttd).vtable.chpen(CDriverRef{driver: &mut (*ttd).driver}, delta, final);
+        let final_: &mut TickitPen = std::mem::transmute(&mut final_);
+        (*ttd).vtable.chpen(CDriverRef{driver: &mut (*ttd).driver}, delta, final_);
     }
 }
 
@@ -255,7 +256,7 @@ extern fn rust_vtable_gotkey(ttd: *mut c::TickitTermDriver, mut tk: *mut termkey
     }
 }
 
-static rust_vtable: c::TickitTermDriverVTable = c::TickitTermDriverVTable
+static RUST_VTABLE: c::TickitTermDriverVTable = c::TickitTermDriverVTable
 {
     attach: Some(rust_vtable_attach),
     destroy: Some(rust_vtable_destroy),

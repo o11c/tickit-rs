@@ -75,7 +75,7 @@ impl MockTerm
         unsafe
         {
             let tt = c::tickit_mockterm_new(lines as c_int, cols as c_int);
-            MockTerm{tt: TickitTerm{tt: tt, output_hook: std::ptr::mut_null(), output_box: None}}
+            MockTerm{tt: TickitTerm{tt: tt, output_hook: std::ptr::null_mut(), output_box: None}}
         }
     }
 }
@@ -116,7 +116,7 @@ impl MockTerm
             let line = line as c_int;
             let col = col as c_int;
             let width = width as c_int;
-            let n = c::tickit_mockterm_get_display_text(self.mt(), std::ptr::mut_null(), 0, line, col, width);
+            let n = c::tickit_mockterm_get_display_text(self.mt(), std::ptr::null_mut(), 0, line, col, width);
             let mut buf: Vec<u8> = Vec::from_fn(n as uint, |_| std::mem::uninitialized());
             let ptr: *mut c_char = std::mem::transmute(buf.as_mut_ptr());
             c::tickit_mockterm_get_display_text(self.mt(), ptr, n, line, col, width);

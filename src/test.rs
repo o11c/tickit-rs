@@ -10,6 +10,8 @@ extern crate tickit;
 
 use tickit::TickitRect;
 
+use taplib::Show2;
+
 macro_rules! diag(
     ($($arg:tt)*) => ({
         let dst: &mut ::std::io::Writer = &mut ::std::io::stderr();
@@ -152,6 +154,78 @@ mod taplib
                 self.ok(false, name);
                 diag!("got \"{}\" expected \"{}\" in: {}", got.escape_default(), expect.escape_default(), name);
             }
+        }
+    }
+
+    pub trait Show2
+    {
+        fn s(self) -> String;
+    }
+    impl Show2 for ::tickit::TickitRect
+    {
+        fn s(self) -> String
+        {
+            format!("{},{}..{},{}", self.left, self.top, self.right(), self.bottom())
+        }
+    }
+
+    impl Tap
+    {
+        pub fn is_rect(&mut self, got: ::tickit::TickitRect, expect: &str, name: &str)
+        {
+            self.is_int(got.s(), ::rect_init_strp(expect).s(), name)
+        }
+    }
+
+    impl Tap
+    {
+        pub fn is_display_text(&mut self, mt: &mut ::tickit::mock::MockTerm, name: &str, expects: &[&str])
+        {
+            let (lines, cols) = mt.tt.get_size();
+
+            assert!(lines == expects.len())
+
+            for line in range(0, lines)
+            {
+                let expect = expects[line];
+                let got = mt.get_display_text(line, 0, cols);
+
+                if expect == got.as_slice()
+                {
+                    continue;
+                }
+
+                self.fail(name);
+                diag!("Got line {:2} |{}|", line, got);
+                diag!("Expected    |{}|", expect);
+
+                return;
+            }
+
+            self.pass(name);
+        }
+
+        pub fn is_termlog<'a>(&mut self, mt: &mut ::tickit::mock::MockTerm, name: &str, expects: &[::LogExpectation<'a>])
+        {
+            let loglen = mt.loglen();
+            assert!(loglen == expects.len());
+
+            for (i, exp) in expects.iter().enumerate()
+            {
+                {
+                    let got = mt.peeklog(i);
+                    if exp.matches(got)
+                    {
+                        continue;
+                    }
+                }
+
+                self.fail(name);
+                mt.clearlog();
+                return;
+            }
+            mt.clearlog();
+            self.pass(name);
         }
     }
 }
@@ -457,26 +531,9 @@ fn rect_init_strp(str_: &str) -> tickit::TickitRect
     }
 }
 
-trait Show2
-{
-    fn s(self) -> String;
-}
-impl Show2 for tickit::TickitRect
-{
-    fn s(self) -> String
-    {
-        format!("{},{}..{},{}", self.left, self.top, self.right(), self.bottom())
-    }
-}
+// RIP cross-mod impl taplib::Tap
 
-impl taplib::Tap
-{
-    pub fn is_rect(&mut self, got: tickit::TickitRect, expect: &str, name: &str)
-    {
-        self.is_int(got.s(), rect_init_strp(expect).s(), name)
-    }
-}
-
+#[allow(non_snake_case)]
 #[test]
 fn test_03rect()
 {
@@ -1052,19 +1109,19 @@ fn test_11term_output_screen()
         tap.is_str_escape(uslice(&(*buffer.lock())), "\r", "buffer after tickit_term_goto col=0");
 
         (*buffer.lock()).clear();
-        tt.move(2, 0);
+        tt.move_(2, 0);
         tap.is_str_escape(uslice(&(*buffer.lock())), "\x1b[2B", "buffer after tickit_term_move down 2");
 
         (*buffer.lock()).clear();
-        tt.move(-2, 0);
+        tt.move_(-2, 0);
         tap.is_str_escape(uslice(&(*buffer.lock())), "\x1b[2A", "buffer after tickit_term_move down 2");
 
         (*buffer.lock()).clear();
-        tt.move(0, 2);
+        tt.move_(0, 2);
         tap.is_str_escape(uslice(&(*buffer.lock())), "\x1b[2C", "buffer after tickit_term_move right 2");
 
         (*buffer.lock()).clear();
-        tt.move(0, -2);
+        tt.move_(0, -2);
         tap.is_str_escape(uslice(&(*buffer.lock())), "\x1b[2D", "buffer after tickit_term_move left 2");
 
         (*buffer.lock()).clear();
@@ -1186,35 +1243,35 @@ fn test_11term_output_xterm()
         tap.is_str_escape(uslice(&(*buffer.lock())), "\x1b[G", "buffer after tickit_term_goto col0");
 
         (*buffer.lock()).clear();
-        tt.move(1, 0);
+        tt.move_(1, 0);
         tap.is_str_escape(uslice(&(*buffer.lock())), "\x1b[B", "buffer after tickit_term_move down 1");
 
         (*buffer.lock()).clear();
-        tt.move(2, 0);
+        tt.move_(2, 0);
         tap.is_str_escape(uslice(&(*buffer.lock())), "\x1b[2B", "buffer after tickit_term_move down 2");
 
         (*buffer.lock()).clear();
-        tt.move(-1, 0);
+        tt.move_(-1, 0);
         tap.is_str_escape(uslice(&(*buffer.lock())), "\x1b[A", "buffer after tickit_term_move down 1");
 
         (*buffer.lock()).clear();
-        tt.move(-2, 0);
+        tt.move_(-2, 0);
         tap.is_str_escape(uslice(&(*buffer.lock())), "\x1b[2A", "buffer after tickit_term_move down 2");
 
         (*buffer.lock()).clear();
-        tt.move(0, 1);
+        tt.move_(0, 1);
         tap.is_str_escape(uslice(&(*buffer.lock())), "\x1b[C", "buffer after tickit_term_move right 1");
 
         (*buffer.lock()).clear();
-        tt.move(0, 2);
+        tt.move_(0, 2);
         tap.is_str_escape(uslice(&(*buffer.lock())), "\x1b[2C", "buffer after tickit_term_move right 2");
 
         (*buffer.lock()).clear();
-        tt.move(0, -1);
+        tt.move_(0, -1);
         tap.is_str_escape(uslice(&(*buffer.lock())), "\x1b[D", "buffer after tickit_term_move left 1");
 
         (*buffer.lock()).clear();
-        tt.move(0, -2);
+        tt.move_(0, -2);
         tap.is_str_escape(uslice(&(*buffer.lock())), "\x1b[2D", "buffer after tickit_term_move left 2");
 
         (*buffer.lock()).clear();
@@ -1622,7 +1679,7 @@ fn test_15term_input()
 
     tt.input_push_bytes("A".as_bytes());
 
-    match (*key_event.lock()).take_unwrap()
+    match (*key_event.lock()).take().unwrap()
     {
         KeyTextEvent{text, mod_} =>
         {
@@ -1643,7 +1700,7 @@ fn test_15term_input()
     */
     tt.input_push_bytes("\u0109".as_bytes());
 
-    match (*key_event.lock()).take_unwrap()
+    match (*key_event.lock()).take().unwrap()
     {
         KeyTextEvent{text, mod_} =>
         {
@@ -1659,7 +1716,7 @@ fn test_15term_input()
 
     tt.input_push_bytes("\x1b[A".as_bytes());
 
-    match (*key_event.lock()).take_unwrap()
+    match (*key_event.lock()).take().unwrap()
     {
         KeyKeyEvent{key, mod_} =>
         {
@@ -1675,7 +1732,7 @@ fn test_15term_input()
 
     tt.input_push_bytes("\x01".as_bytes());
 
-    match (*key_event.lock()).take_unwrap()
+    match (*key_event.lock()).take().unwrap()
     {
         KeyKeyEvent{key, mod_} =>
         {
@@ -1736,7 +1793,7 @@ fn test_15term_input()
 
     tt.input_push_bytes("B".as_bytes());
 
-    match (*key_event.lock()).take_unwrap()
+    match (*key_event.lock()).take().unwrap()
     {
         KeyKeyEvent{key, mod_} =>
         {
@@ -1760,11 +1817,11 @@ fn test_15term_input()
     tap.ok(timeout_msec.is_some() && timeout_msec.unwrap() > 0, "term has timeout after Escape");
 
     /* Add an extra milisecond timing grace */
-    std::io::timer::sleep(Duration::milliseconds(timeout_msec.unwrap() as i32 + 1));
+    std::io::timer::sleep(Duration::milliseconds(timeout_msec.unwrap() as i64 + 1));
 
     tt.input_check_timeout();
 
-    match (*key_event.lock()).take_unwrap()
+    match (*key_event.lock()).take().unwrap()
     {
         KeyKeyEvent{key, mod_} =>
         {
@@ -1834,7 +1891,7 @@ fn test_16term_read()
     fd_write(fd.writer, "A".as_bytes());
     tt.input_readable();
 
-    match (*key_event.lock()).take_unwrap()
+    match (*key_event.lock()).take().unwrap()
     {
         KeyTextEvent{text} =>
         {
@@ -1859,11 +1916,11 @@ fn test_16term_read()
     tap.ok(timeout_msec.is_some() && timeout_msec.unwrap() > 0, "term has timeout after Escape");
 
     /* Add an extra milisecond timing grace */
-    std::io::timer::sleep(Duration::milliseconds(timeout_msec.unwrap() as i32 + 1));
+    std::io::timer::sleep(Duration::milliseconds(timeout_msec.unwrap() as i64 + 1));
 
     tt.input_check_timeout();
 
-    match (*key_event.lock()).take_unwrap()
+    match (*key_event.lock()).take().unwrap()
     {
         KeyKeyEvent{key} =>
         {
@@ -1940,7 +1997,7 @@ fn test_19term_driver()
         fn scrollrect(&mut self, cdr: CDriverRef, rect: &TickitRect, downward: int, rightward: int) -> bool { false }
         fn erasech(&mut self, cdr: CDriverRef, count: int, moveend: Option<bool>) {}
         fn clear(&mut self, cdr: CDriverRef) {}
-        fn chpen(&mut self, cdr: CDriverRef, delta: &TickitPen, final: &TickitPen) {}
+        fn chpen(&mut self, cdr: CDriverRef, delta: &TickitPen, final_: &TickitPen) {}
         fn getctl_int(&mut self, cdr: CDriverRef, ctl: TickitTermCtl) -> Option<int>
         {
             match ctl
@@ -2010,6 +2067,7 @@ impl PenLog
     fn af(self, v: int) -> PenLog { PenLog{af: Some(v), ..self} }
 }
 
+#[allow(non_uppercase_statics)]
 static pen_log: PenLog = PenLog{fg: None, bg: None, b: None, u: None, i: None, rv: None, strike: None, af: None};
 
 enum LogExpectation<'a>
@@ -2093,57 +2151,7 @@ impl<'a> LogExpectation<'a>
     }
 }
 
-impl taplib::Tap
-{
-    fn is_display_text(&mut self, mt: &mut tickit::mock::MockTerm, name: &str, expects: &[&str])
-    {
-        let (lines, cols) = mt.tt.get_size();
-
-        assert!(lines == expects.len())
-
-        for line in range(0, lines)
-        {
-            let expect = expects[line];
-            let got = mt.get_display_text(line, 0, cols);
-
-            if expect == got.as_slice()
-            {
-                continue;
-            }
-
-            self.fail(name);
-            diag!("Got line {:2} |{}|", line, got);
-            diag!("Expected    |{}|", expect);
-
-            return;
-        }
-
-        self.pass(name);
-    }
-
-    fn is_termlog<'a>(&mut self, mt: &mut tickit::mock::MockTerm, name: &str, expects: &[LogExpectation<'a>])
-    {
-        let loglen = mt.loglen();
-        assert!(loglen == expects.len());
-
-        for (i, exp) in expects.iter().enumerate()
-        {
-            {
-                let got = mt.peeklog(i);
-                if exp.matches(got)
-                {
-                    continue;
-                }
-            }
-
-            self.fail(name);
-            mt.clearlog();
-            return;
-        }
-        mt.clearlog();
-        self.pass(name);
-    }
-}
+// RIP cross-mod impl taplib::Tap
 
 fn fillterm(tt: &mut tickit::TickitTerm)
 {

@@ -76,6 +76,46 @@ pub enum TickitPenAttr
   TICKIT_N_PEN_ATTRS
 }
 
+impl TickitPenAttr
+{
+    pub fn attrtype(self) -> TickitPenAttrType
+    {
+        unsafe
+        {
+            tickit_pen_attrtype(self)
+        }
+    }
+    pub fn attrname_opt(self) -> Option<&'static str>
+    {
+        unsafe
+        {
+            let cstr = tickit_pen_attrname(self);
+            if cstr.is_not_null()
+            {
+                Some(::std::str::raw::c_str_to_static_slice(cstr))
+            }
+            else
+            {
+                None
+            }
+        }
+    }
+    pub fn attrname(self) -> &'static str
+    {
+        self.attrname_opt().unwrap()
+    }
+    pub fn lookup_attr(name: &str) -> TickitPenAttr
+    {
+        unsafe
+        {
+            name.with_c_str(
+                |n| { tickit_pen_lookup_attr(n) }
+            )
+        }
+    }
+}
+
+
 #[repr(C)] #[deriving(PartialEq, Show)]
 pub enum TickitPenAttrType
 {
@@ -365,7 +405,7 @@ pub unsafe fn tickit_stringpos_limit_none(pos: *mut TickitStringPos)
   (*pos).columns = -1;
 }
 
-#[inline] #[allow(non_snake_case_functions)]
+#[inline] #[allow(non_snake_case)]
 pub unsafe fn INIT_TICKIT_STRINGPOS_LIMIT_BYTES(v: size_t) -> TickitStringPos
 {
     TickitStringPos{bytes: v, codepoints: -1, graphemes: -1, columns: -1}
@@ -379,7 +419,7 @@ pub unsafe fn tickit_stringpos_limit_bytes(pos: *mut TickitStringPos, bytes: siz
   (*pos).columns = -1;
 }
 
-#[inline] #[allow(non_snake_case_functions)]
+#[inline] #[allow(non_snake_case)]
 pub unsafe fn INIT_TICKIT_STRINGPOS_LIMIT_CODEPOINTS(v: c_int) -> TickitStringPos
 {
     TickitStringPos{bytes: -1, codepoints: v, graphemes : -1, columns : -1}
@@ -393,7 +433,7 @@ pub unsafe fn tickit_stringpos_limit_codepoints(pos: *mut TickitStringPos, codep
   (*pos).columns = -1;
 }
 
-#[inline] #[allow(non_snake_case_functions)]
+#[inline] #[allow(non_snake_case)]
 pub unsafe fn INIT_TICKIT_STRINGPOS_LIMIT_GRAPHEMES(v: c_int) -> TickitStringPos
 {
     TickitStringPos{bytes: -1, codepoints: -1, graphemes: v, columns: -1}
@@ -407,7 +447,7 @@ pub unsafe fn tickit_stringpos_limit_graphemes(pos: *mut TickitStringPos, graphe
   (*pos).columns = -1;
 }
 
-#[inline] #[allow(non_snake_case_functions)]
+#[inline] #[allow(non_snake_case)]
 pub unsafe fn INIT_TICKIT_STRINGPOS_LIMIT_COLUMNS(v: c_int) -> TickitStringPos
 {
     TickitStringPos{bytes: -1, codepoints: -1, graphemes: -1, columns: v}

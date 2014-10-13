@@ -1,6 +1,8 @@
 extern crate libc;
 extern crate native;
 
+extern crate signals;
+
 extern crate tickit;
 
 #[start]
@@ -132,8 +134,6 @@ fn event(tt: &mut tickit::TickitTerm, ev: &tickit::TickitEvent)
 
 fn main()
 {
-    let hack = tickit::signal_hacks::RemoteGreenSignalListener::new();
-
     let mut tt = match tickit::TickitTerm::new()
     {
         Ok(o) => { o }
@@ -156,9 +156,10 @@ fn main()
     render_key(&mut tt, None);
     render_mouse(&mut tt, None);
 
-    // TODO figure out why this isn't working
-    // My guess is that the other thread is keeping it alive.
-    while hack.rx.try_recv().is_err()
+    let sig = signals::Signals::new().unwrap();
+    sig.subscribe(signals::Interrupt);
+
+    while sig.receiver().try_recv().is_err()
     {
         tt.input_wait(None);
     }

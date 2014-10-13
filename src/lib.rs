@@ -4,9 +4,7 @@
 #![feature(unsafe_destructor)]
 
 extern crate collections;
-extern crate green;
 extern crate libc;
-extern crate rustuv;
 
 extern crate termkey;
 
@@ -18,7 +16,7 @@ use libc::size_t;
 use libc::timeval;
 
 use c::TickitPenAttr;
-use c::TickitPenAttrType;
+pub use c::TickitPenAttrType;
 use c::X_Tickit_Mod;
 use c::TickitTermCtl;
 use c::TickitLineStyle;
@@ -406,7 +404,7 @@ extern fn pen_lively_callback(mut pen: *mut c::TickitPen, ev: c::TickitEventType
         let lively: *mut LivelyPenData = std::mem::transmute(data);
         if ev == c::TICKIT_EV_UNBIND
         {
-            (*lively).pen = std::ptr::mut_null();
+            (*lively).pen = std::ptr::null_mut();
         }
         else
         {
@@ -449,45 +447,7 @@ impl TickitPen
     // pub fn bind_event_split<T>(&mut self, ev: c::TickitEventType, cb: fn(&mut TickitPen, &TickitEvent, T), data: T)
 }
 
-impl c::TickitPenAttr
-{
-    pub fn attrtype(self) -> TickitPenAttrType
-    {
-        unsafe
-        {
-            c::tickit_pen_attrtype(self)
-        }
-    }
-    pub fn attrname_opt(self) -> Option<&'static str>
-    {
-        unsafe
-        {
-            let cstr = c::tickit_pen_attrname(self);
-            if cstr.is_not_null()
-            {
-                Some(std::str::raw::c_str_to_static_slice(cstr))
-            }
-            else
-            {
-                None
-            }
-        }
-    }
-    pub fn attrname(self) -> &'static str
-    {
-        self.attrname_opt().unwrap()
-    }
-    pub fn lookup_attr(name: &str) -> TickitPenAttr
-    {
-        unsafe
-        {
-            name.with_c_str(
-                |n| { c::tickit_pen_lookup_attr(n) }
-            )
-        }
-    }
-}
-
+// RIP cross-mod impl c::TickitPenAttr
 
 #[deriving(PartialEq)]
 pub struct TickitRect
@@ -674,7 +634,7 @@ impl TickitTerm
             let tt = c::tickit_term_new();
             if tt.is_not_null()
             {
-                Ok(TickitTerm{tt: tt, output_hook: std::ptr::mut_null(), output_box: None})
+                Ok(TickitTerm{tt: tt, output_hook: std::ptr::null_mut(), output_box: None})
             }
             else
             {
@@ -691,7 +651,7 @@ impl TickitTerm
             });
             if tt.is_not_null()
             {
-                Ok(TickitTerm{tt: tt, output_hook: std::ptr::mut_null(), output_box: None})
+                Ok(TickitTerm{tt: tt, output_hook: std::ptr::null_mut(), output_box: None})
             }
             else
             {
@@ -711,7 +671,7 @@ impl Drop for TickitTerm
             let x = self.output_hook as *mut LivelyTermOutData<'static>;
             if x.is_not_null()
             {
-                (*x).tt = std::ptr::mut_null();
+                (*x).tt = std::ptr::null_mut();
             }
         }
     }
@@ -747,7 +707,7 @@ extern fn term_hacky_forever_output_function(term: *mut c::TickitTerm, bytes: *c
 {
     unsafe
     {
-        let termp: &mut (_, *mut c_void, *mut c_void) = &mut (term, std::ptr::mut_null(), std::ptr::mut_null());
+        let termp: &mut (_, *mut c_void, *mut c_void) = &mut (term, std::ptr::null_mut(), std::ptr::null_mut());
         let term_: &mut TickitTerm = std::mem::transmute(termp);
         let cb: fn(&mut TickitTerm, &[u8]) = std::mem::transmute(data);
         let bytes: *const u8 = std::mem::transmute(bytes);
@@ -776,8 +736,8 @@ impl<'a> Drop for LivelyTermOutEvent<'a>
         {
             unsafe
             {
-                c::tickit_term_set_output_func((*self.data.tt).tt, None, std::ptr::mut_null());
-                (*self.data.tt).output_hook = std::ptr::mut_null();
+                c::tickit_term_set_output_func((*self.data.tt).tt, None, std::ptr::null_mut());
+                (*self.data.tt).output_hook = std::ptr::null_mut();
             }
         }
     }
@@ -789,7 +749,7 @@ extern fn term_out_lively_callback(term: *mut c::TickitTerm, bytes: *const c_cha
     {
         let lively: *mut LivelyTermOutData = std::mem::transmute(data);
         {
-            let termp: &mut (_, *mut c_void, *mut c_void) = &mut (term, std::ptr::mut_null(), std::ptr::mut_null());
+            let termp: &mut (_, *mut c_void, *mut c_void) = &mut (term, std::ptr::null_mut(), std::ptr::null_mut());
             let term_: &mut TickitTerm = std::mem::transmute(termp);
             let bytes: *const u8 = std::mem::transmute(bytes);
             std::slice::raw::buf_as_slice(bytes, len as uint, |arr| { ((*lively).cb)(term_, arr) });
@@ -808,7 +768,7 @@ struct TermOutputData<T>
 {
     unsafe
     {
-        let termp: &mut (_, *mut c_void, *mut c_void) = &mut (term, std::ptr::mut_null(), std::ptr::mut_null());
+        let termp: &mut (_, *mut c_void, *mut c_void) = &mut (term, std::ptr::null_mut(), std::ptr::null_mut());
         let term_: &mut TickitTerm = std::mem::transmute(termp);
         let bytes: *const u8 = std::mem::transmute(bytes);
         let data: &mut TermOutputData<T> = std::mem::transmute(data);
@@ -1020,7 +980,7 @@ extern fn term_hacky_forever_bind_function(term: *mut c::TickitTerm, ev: c::Tick
     }
     unsafe
     {
-        let termp: &mut (_, *mut c_void, *mut c_void) = &mut (term, std::ptr::mut_null(), std::ptr::mut_null());
+        let termp: &mut (_, *mut c_void, *mut c_void) = &mut (term, std::ptr::null_mut(), std::ptr::null_mut());
         let term_: &mut TickitTerm = std::mem::transmute(termp);
         let args_ = event_args(ev, &mut *args);
         let cb: fn(&mut TickitTerm, &TickitEvent) = std::mem::transmute(data);
@@ -1063,11 +1023,11 @@ extern fn term_lively_callback(term: *mut c::TickitTerm, ev: c::TickitEventType,
         let lively: *mut LivelyTermData = std::mem::transmute(data);
         if ev == c::TICKIT_EV_UNBIND
         {
-            (*lively).term = std::ptr::mut_null();
+            (*lively).term = std::ptr::null_mut();
         }
         else
         {
-            let termp: &mut (_, *mut c_void, *mut c_void) = &mut (term, std::ptr::mut_null(), std::ptr::mut_null());
+            let termp: &mut (_, *mut c_void, *mut c_void) = &mut (term, std::ptr::null_mut(), std::ptr::null_mut());
             let term_: &mut TickitTerm = std::mem::transmute(termp);
             let args_ = event_args(ev, &mut *args);
             ((*lively).cb)(term_, &args_);
@@ -1094,7 +1054,7 @@ struct SplitTermData<T>
         }
         else
         {
-            let termp: &mut (_, *mut c_void, *mut c_void) = &mut (term, std::ptr::mut_null(), std::ptr::mut_null());
+            let termp: &mut (_, *mut c_void, *mut c_void) = &mut (term, std::ptr::null_mut(), std::ptr::null_mut());
             let term_: &mut TickitTerm = std::mem::transmute(termp);
             let args_ = event_args(ev, &mut *args);
             let data: &mut SplitTermData<T> = std::mem::transmute(data);
@@ -1203,7 +1163,7 @@ impl TickitTerm
             c::tickit_term_goto(self.tt, line as c_int, col as c_int) != 0
         }
     }
-    pub fn move(&mut self, downward: int, rightward: int)
+    pub fn move_(&mut self, downward: int, rightward: int)
     {
         unsafe
         {
@@ -1741,7 +1701,7 @@ impl TickitRenderBuffer
     {
         unsafe
         {
-            let n = c::tickit_renderbuffer_get_cell_text(self.rb, line as c_int, col as c_int, std::ptr::mut_null(), 0);
+            let n = c::tickit_renderbuffer_get_cell_text(self.rb, line as c_int, col as c_int, std::ptr::null_mut(), 0);
             if n > 0
             {
                 let buf: Vec<u8> = Vec::from_fn(n as uint, |_| { std::mem::uninitialized() });
@@ -1789,12 +1749,12 @@ impl TickitRenderBuffer
         unsafe
         {
             let mut span_info: c::TickitRenderBufferSpanInfo = std::mem::uninitialized();
-            span_info.pen = std::ptr::mut_null();
+            span_info.pen = std::ptr::null_mut();
             // The return value is supposed to be the same as span_info.len,
             // but due to a bug, it is instead the length you pass in.
             // Thus, we need to pass in the span_info even the first time.
             // But this works out just as well for non-text inspections.
-            let badlen = c::tickit_renderbuffer_get_span(self.rb, line as c_int, startcol as c_int, &mut span_info, std::ptr::mut_null(), 0);
+            let badlen = c::tickit_renderbuffer_get_span(self.rb, line as c_int, startcol as c_int, &mut span_info, std::ptr::null_mut(), 0);
             if badlen == -1
             {
                 fail!();
@@ -1811,64 +1771,6 @@ impl TickitRenderBuffer
                 c::tickit_renderbuffer_get_span(self.rb, line as c_int, startcol as c_int, &mut span_info, buf.as_ptr() as *mut c_char, goodlen);
                 TextSpan{pen: TickitPen{pen: c::tickit_pen_clone(const_(span_info.pen))}, text: collections::string::raw::from_utf8(buf)}
             }
-        }
-    }
-}
-
-
-pub mod signal_hacks
-{
-    use std::task::TaskBuilder;
-    use green::{SchedPool, PoolConfig, GreenTaskBuilder};
-    use std::io::signal::{Interrupt, Listener, Signum};
-    use std::comm::channel;
-    use rustuv;
-
-    // signals only work on green threads right now
-    // http://doc.rust-lang.org/green/index.html#using-a-scheduler-pool
-    // http://doc.rust-lang.org/std/io/signal/struct.Listener.html#example
-    pub struct RemoteGreenSignalListener
-    {
-        // pool is never None except briefly during drop, to avoid unsafe.
-        pool: Option<SchedPool>,
-        pub rx: Receiver<Signum>,
-    }
-    impl RemoteGreenSignalListener
-    {
-        pub fn new() -> RemoteGreenSignalListener
-        {
-            let mut config = PoolConfig::new();
-            config.threads = 1;
-            config.event_loop_factory = rustuv::event_loop;
-            let config = config;
-            let mut pool = SchedPool::new(config);
-            let (tx, rx) = channel::<Signum>();
-            TaskBuilder::new().green(&mut pool).spawn(
-                proc()
-                {
-                    let mut listener = Listener::new();
-                    listener.register(Interrupt).unwrap();
-
-                    loop
-                    {
-                        let sig = listener.rx.recv();
-                        print!("\r\nInterrupt signal received. Press any key to flush\r\n");
-                        tx.send(sig);
-                        break;
-                    }
-                }
-            );
-
-            RemoteGreenSignalListener{pool: Some(pool), rx: rx}
-        }
-    }
-    impl Drop for RemoteGreenSignalListener
-    {
-        fn drop(&mut self)
-        {
-            // apparently this would work without the Option
-            // mem::replace(&mut self.pool, mem::zeroed()).shutdown();
-            self.pool.take_unwrap().shutdown();
         }
     }
 }

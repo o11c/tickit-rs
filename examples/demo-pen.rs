@@ -1,6 +1,8 @@
 extern crate libc;
 extern crate native;
 
+extern crate signals;
+
 extern crate tickit;
 
 #[start]
@@ -9,7 +11,7 @@ fn start(argc: int, argv: *const *const u8) -> int
     native::start(argc, argv, main)
 }
 
-static colours: &'static [(&'static str, int)] =
+static COLOURS: &'static [(&'static str, int)] =
 &[
     ("red   ", 1),
     ("blue  ", 4),
@@ -17,7 +19,7 @@ static colours: &'static [(&'static str, int)] =
     ("yellow", 3),
 ];
 
-static attrs: &'static [(&'static str, tickit::c::TickitPenAttr)] =
+static ATTRS: &'static [(&'static str, tickit::c::TickitPenAttr)] =
 &[
     ("bold",          tickit::c::TICKIT_PEN_BOLD),
     ("underline",     tickit::c::TICKIT_PEN_UNDER),
@@ -28,8 +30,6 @@ static attrs: &'static [(&'static str, tickit::c::TickitPenAttr)] =
 
 fn main()
 {
-    let hack = tickit::signal_hacks::RemoteGreenSignalListener::new();
-
     let mut tt = match tickit::TickitTerm::new()
     {
         Ok(o) => { o }
@@ -52,7 +52,7 @@ fn main()
     /* ANSI colours foreground */
     tt.goto(0, 0);
 
-    for &(ref name, ref val) in colours.iter()
+    for &(ref name, ref val) in COLOURS.iter()
     {
         pen.set_colour_attr(tickit::c::TICKIT_PEN_FG, *val);
         tt.setpen(&pen);
@@ -65,7 +65,7 @@ fn main()
     tt.goto(2, 0);
 
     /* ANSI high-brightness colours foreground */
-    for &(ref name, ref val) in colours.iter()
+    for &(ref name, ref val) in COLOURS.iter()
     {
         pen.set_colour_attr(tickit::c::TICKIT_PEN_FG, val+8);
         tt.setpen(&pen);
@@ -80,7 +80,7 @@ fn main()
 
     pen.set_colour_attr(tickit::c::TICKIT_PEN_FG, 0);
 
-    for &(ref name, ref val) in colours.iter()
+    for &(ref name, ref val) in COLOURS.iter()
     {
         pen.set_colour_attr(tickit::c::TICKIT_PEN_BG, *val);
         tt.setpen(&pen);
@@ -93,7 +93,7 @@ fn main()
     tt.goto(6, 0);
 
     /* ANSI high-brightness colours background */
-    for &(ref name, ref val) in colours.iter()
+    for &(ref name, ref val) in COLOURS.iter()
     {
         pen.set_colour_attr(tickit::c::TICKIT_PEN_BG, val+8);
         tt.setpen(&pen);
@@ -107,7 +107,7 @@ fn main()
     pen.clear_attr(tickit::c::TICKIT_PEN_BG);
 
     /* Some interesting rendering attributes */
-    for (i, &(ref name, ref attr)) in attrs.iter().enumerate()
+    for (i, &(ref name, ref attr)) in ATTRS.iter().enumerate()
     {
         tt.goto((8 + 2*i) as int, 0);
 
@@ -124,7 +124,10 @@ fn main()
     tt.setpen(&pen);
     tt.print("alternate font");
 
-    while hack.rx.try_recv().is_err()
+    let sig = signals::Signals::new().unwrap();
+    sig.subscribe(signals::Interrupt);
+
+    while sig.receiver().try_recv().is_err()
     {
         tt.input_wait(None);
     }
